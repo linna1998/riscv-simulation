@@ -11,10 +11,10 @@ struct IFID {
 
 
 struct IDEX {
-	int Rd, Rt;
+	int Rd, Rs1, Rs2;
 	int PC;
 	int Imm;
-	REG Reg_Rs, Reg_Rt;
+	REG Reg_Rd, Reg_Rs1,Reg_Rs2;
 
 	char Ctrl_EX_ALUSrc;
 	char Ctrl_EX_ALUOp;

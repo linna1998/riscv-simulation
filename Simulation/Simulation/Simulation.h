@@ -8,37 +8,82 @@
 #include<stdlib.h>
 #include"Reg_def.h"
 
-#define OP_JAL 111
+//R type
 #define OP_R 51
 
 #define F3_ADD 0
-#define F3_MUL 0
-
-#define F7_MSE 1
 #define F7_ADD 0
+#define F7_MUL 0x01
+#define F7_SUB 0x20
 
-#define OP_I 19
-#define F3_ADDI 0
+#define F3_SLL 0x1
+#define F7_SLL 0x01
+#define F7_MULH 0x01
+#define F3_SLT 0x2
+#define F7_SLT 0
 
-#define OP_SW 35
-#define F3_SB 0
+#define F3_XOR 0x4
+#define F7_XOR 0
+#define F7_DIV 0x1
+#define F3_SRL 0x5
+#define F7_SRL 0
+#define F7_SRA 0x20
 
-#define OP_LW 3
+#define F3_OR 0x6
+#define F7_OR 0
+#define F7_REM 0x1
+#define F3_AND 0x7
+#define F7_AND 0
+
+//I type 1
+#define OP_LB 3
 #define F3_LB 0
+#define F3_LH 1
+#define F3_LW 2
+#define F3_LD 3
 
-#define OP_BEQ 99
-#define F3_BEQ 0
+//I type 2
+#define OP_ADDI 0x13
+#define F3_ADDI 0
+#define F3_SLLI 1
+#define F7_SLLI 0
+#define F3_SLTI 0x2
+#define F3_XORI 0x4
+#define F3_SRLI 0x5
+#define F7_SRLI 0
+#define F7_SRAI 0x20
+#define F3_ORI 0x6
+#define F3_ANDI 0x7
 
-#define OP_IW 27
+//I type 3
+#define OP_ADDIW 0x1B
 #define F3_ADDIW 0
+#define OP_JALR 0x67
+#define F3_JALR 0
+#define OP_ECALL 0x73
+#define F3_ECALL 0
+#define F7_ECALL 0
 
-#define OP_RW 59
-#define F3_ADDW 0
-#define F7_ADDW 0
+//S type
+#define OP_S 0x23
+#define F3_SB 0
+#define F3_SH 1
+#define F3_SW 2
+#define F3_SD 3
 
-#define OP_SCALL 115
-#define F3_SCALL 0
-#define F7_SCALL 0
+//SB type
+#define OP_SB 0x63
+#define F3_BEQ 0
+#define F3_BNE 1
+#define F3_BLT 4
+#define F3_BGE 5
+
+//U type
+#define OP_AUIPC 0x17
+#define OP_LUI 0x37
+
+//UJ type
+#define OP_JAL 0x6f
 
 #define MAX 100000000
 
