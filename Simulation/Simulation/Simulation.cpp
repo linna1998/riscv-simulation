@@ -161,8 +161,9 @@ void ID()
 	OP = getbit(inst, 0, 6);
 	fuc3 = getbit(inst, 12, 14);
 	fuc7 = getbit(inst, 25, 31);
-	//shamt: same direction with rs2
-	shamt = getbit(inst, 20, 24);
+	////shamt: same direction with rs2
+	//in v1.3 change shamt into 6 bits
+	shamt = getbit(inst, 20, 25);
 	rs1 = getbit(inst, 15, 19);
 	rs2 = getbit(inst, 20, 24);
 	rd = getbit(inst, 7, 11);
@@ -289,7 +290,7 @@ void ID()
 	{
 		//same control parts
 		EXTop = 1;//sign extend
-		EXTsrc = imm_I;
+		EXTsrc = imm_I;//except the shifts, they use shamt
 		RegDst = 0;
 		ALUSrc = 1;
 		Branch = 0;
@@ -303,6 +304,7 @@ void ID()
 		}
 		else if (fuc3 == F3_SLLI && fuc7 == F7_SLLI)
 		{
+			EXTsrc = shamt;
 			ALUop = 3;//sll
 		}
 		else if (fuc3 == F3_SLTI)
@@ -315,10 +317,12 @@ void ID()
 		}
 		else if (fuc3 == F3_SRLI && fuc7 == F7_SRLI)
 		{
+			EXTsrc = shamt;
 			ALUop = 8;//srl
 		}
 		else if (fuc3 == F3_SRLI && fuc7 == F7_SRAI)
 		{
+			EXTsrc = shamt;
 			ALUop = 9;//sra
 		}
 		else if (fuc3 == F3_ORI)

@@ -105,7 +105,6 @@ unsigned int imm_S = 0;//S
 unsigned int imm_SB = 0;//SB
 unsigned int imm_U= 0;//U
 unsigned int imm_UJ = 0;//UJ
-
 						  
 void load_memory();//¼ÓÔØÄÚ´æ
 
@@ -120,7 +119,6 @@ void EX();
 void MEM();
 
 void WB();
-
 
 //·ûºÅÀ©Õ¹
 long long int ext_signed(unsigned int src, int bit);
