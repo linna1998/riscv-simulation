@@ -1,4 +1,3 @@
-#pragma once
 #include<stdio.h>
 #include<string.h>
 typedef struct {
@@ -17,13 +16,13 @@ typedef struct {
 	unsigned char b;
 }int8;
 
-typedef int64 Elf64_Addr;
-typedef int64 Elf64_Off;
-typedef int64 Elf64_Xword;
-typedef int64 Elf64_Sxword;
-typedef int32 Elf64_Word;
-typedef int32 Elf64_Sword;
-typedef int16 Elf64_Half;
+typedef unsigned long long Elf64_Addr;
+typedef unsigned long long Elf64_Off;
+typedef unsigned long long Elf64_Xword;
+typedef unsigned long long Elf64_Sxword;
+typedef unsigned int Elf64_Word;
+typedef unsigned int Elf64_Sword;
+typedef unsigned short Elf64_Half;
 
 
 #define	EI_CLASS 4
@@ -33,6 +32,82 @@ typedef int16 Elf64_Half;
 #define	EI_ABIVERSION 8
 #define	EI_PAD 9
 #define	EI_NIDENT 16
+
+
+/** EI_CLASS */
+#define ELFCLASSNONE 0  // Invalid class
+#define ELFCLASS32 1  // 32-bit objects
+#define ELFCLASS64 2  // 64-bit objects
+
+/** EI_DATA */
+#define ELFDATANONE 0  // Invalid data encoding
+#define ELFDATALSB 1  // Little endian, the high bit is in low address
+#define ELFDATAMSB 2  // Big endian, the high bit is in high address
+
+/** e_type */
+#define ET_NONE 0  // No file type
+#define ET_REL 1  // Relocatable file
+#define ET_EXEC 2  // Executable file
+#define ET_DYN 3  // Shared object file
+#define ET_CORE 4  // Core file
+
+/** EI_VERSION */
+#define EV_NONE 0  // Invalid version
+#define EV_CURRENT 1  // Current version
+
+/** e_machine */
+#define EM_NONE 0  // No machine
+#define EM_M32 1  // AT&T WE 32100
+
+/** sh_type */
+#define SHT_NULL 0  // Marks the section header as inactive
+#define SHT_PROGBITS 1
+#define SHT_SYMTAB 2  // Hold a symbol table. Provides symblos for link editing
+#define SHT_STRTAB 3
+#define SHT_RELA 4
+#define SHT_HASH 5
+#define SHT_DYNAMIC 6
+#define SHT_NOTE 7
+#define SHT_NOBITS 8
+#define SHT_REL 9
+#define SHT_SHLIB 10
+#define SHT_DYNSYM 11
+#define SHT_LOPROC 0x70000000
+#define SHT_HIPROC 0x7fffffff
+#define SHT_LOUSER 0x80000000
+#define SHT_HIUSER 0xffffffff
+
+/** Segment types */
+#define PT_NULL 0
+#define PT_LOAD	1
+
+/** sh_flags */
+#define SHF_WRITE 0x1
+#define SHF_ALLOC 0x2
+#define SHF_EXECINSTR 0x4
+#define SHF_RELA_LIVEPATCH 0x00100000
+#define SHF_RO_AFTER_INIT 0x00200000
+#define SHF_MASKPROC 0xf0000000
+
+/** st_info */
+#define ELF32_ST_BIND(i) ((i)>>4)
+#define ELF32_ST_TYPE(i) ((i)&0xf)
+
+/** stb bind type */
+#define STB_LOCAL 0
+#define STB_GLOBAL 1
+#define STB_WEAK 2
+#define STB_LOPROC 13
+#define STB_HIPROC 15
+
+/** ELF32_ST_TYPE */
+#define STT_NOTYPE 0
+#define STT_OBJECT 1
+#define STT_FUNC 2
+#define STT_SECTION 3
+#define STT_FILE 4
+#define STT_LOPROC 13
+#define STT_HIPROC 15
 
 #define	SHN_UNDEF 0
 #define	SHN_LOPROC 0xFF00
@@ -107,12 +182,12 @@ void read_Phdr();
 
 
 //代码段在解释文件中的偏移地址
-unsigned int cadr = 0;
+unsigned long long cadr = 0;    //////////////////////////////////////////////
 
-//代码段的长度
-unsigned int csize = 0;
+								//代码段的长度
+unsigned long long csize = 0;      ///////////////////////////////////////////////
 
-//代码段在内存中的虚拟地址
+								   //代码段在内存中的虚拟地址
 unsigned int vadr = 0;
 
 //全局数据段在内存的地址
@@ -120,6 +195,8 @@ unsigned long long gp = 0;
 
 //main函数在内存中地址
 unsigned int madr = 0;
+//main函数在ELF文件中的地址
+unsigned long long main_adr;
 
 //程序结束时的PC
 unsigned int endPC = 0;
@@ -130,4 +207,3 @@ unsigned int entry = 0;
 FILE *file = NULL;
 
 
-#pragma once

@@ -1,6 +1,3 @@
-//todo:
-//Greencard changes 1.3 & 1.4
-
 #include "Simulation.h"
 using namespace std;
 
@@ -634,12 +631,12 @@ void EX()
 	}
 	case 8:
 	{
-		ALUout = (unsigned)ALU_A >> ALU_B;//逻辑右移
+		ALUout = (unsigned int)ALU_A >> ALU_B;//逻辑右移
 		break;
 	}
 	case 9:
 	{
-		ALUout = (signed)ALU_A >> ALU_B;//算术右移
+		ALUout = (int)ALU_A >> ALU_B;//算术右移
 		break;
 	}
 	case 10:
@@ -660,21 +657,20 @@ void EX()
 	default: ALUout = 0;
 	}
 
-	//choose reg dst address
-	//RegDst=0: write into rd
-	//RegDst=1: write into PC
-	//RegDst=2: don't write to register
-	//???前面Reg_Dst还是char的…
-	//越写越乱了QAQ
-	int Reg_Dst;
-	if (RegDst == 0)
-	{
-
-	}
-	else
-	{
-
-	}
+	//现在我觉得这块不用了，直接把rd送到后面就行了，反正要写都是写在rd里面
+	////choose reg dst address
+	////RegDst=0: write into rd
+	////RegDst=1: write into PC
+	////RegDst=2: don't write to register
+	////???前面Reg_Dst还是char的…
+	////越写越乱了QAQ
+	//int Reg_Dst;
+	//if (RegDst == 0)
+	//{
+	//}
+	//else
+	//{
+	//}
 
 	//write EX_MEM_old
 	EX_MEM_old.PC = temp_PC;
