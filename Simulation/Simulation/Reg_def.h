@@ -34,7 +34,7 @@ struct EXMEM {
 	int Reg_Dst;
 	REG ALU_out;
 	int Zero;
-	REG Reg_Rt;//???
+	REG Reg_Rs2;//used in writing to memory
 
 	char Ctrl_M_Branch;
 	char Ctrl_M_MemWrite;
@@ -46,9 +46,9 @@ struct EXMEM {
 }EX_MEM, EX_MEM_old;
 
 struct MEMWB {
-	unsigned int Mem_read;
+	unsigned long long int Mem_read;//the data from the memory
 	REG ALU_out;
-	int Reg_dst;
+	int Reg_Dst;
 
 	char Ctrl_WB_RegWrite;
 	char Ctrl_WB_MemtoReg;

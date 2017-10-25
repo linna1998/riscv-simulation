@@ -123,7 +123,7 @@ void WB();
 
 
 //符号扩展
-int ext_signed(unsigned int src, int bit);
+long long int ext_signed(unsigned int src, int bit);
 
 //获取指定位
 unsigned int getbit(unsigned inst, int s, int e);
@@ -142,8 +142,15 @@ unsigned int getbit(unsigned inst, int s, int e)
 	return inst;
 }
 
-int ext_signed(unsigned int src, int bit)
+long long int ext_signed(unsigned int src, int bit)
+//是扩到64位吗？应该是的23333
+//看了下，都是32位扩到64位呀~
 {
-	return 0;
+	//bit=0: Zero extend
+	//bit=1: sign extend
+	long long int result = src;
+	long long int mask = (1 << 31);
+	if ((result&mask) && (bit == 0)) result = result & 0xFFFF;
+	return result;
 }
 #pragma once

@@ -88,7 +88,7 @@ void IF()
 {
 	//write IF_ID_old
 	IF_ID_old.inst = memory[PC];
-	PC = PC + 1;//??? why not add 4
+	PC = PC + 1;
 	IF_ID_old.PC = PC;
 }
 
@@ -102,8 +102,12 @@ void ID()
 	int EXTop = 0;
 	//the number needed to be extended
 	unsigned int EXTsrc = 0;
-	//RegDst=0: send ALUout into register
-	//RegDst=1: send ALUout into PC
+	////RegDst=0: send ALUout into register rd
+	////RegDst=1: send ALUout into PC
+	////RegDst=2: don't write to register
+	//The old version from RegDst
+	//RegDst=0: write into rd
+	//RegDst=1: write into PC
 	//RegDst=2: don't write to register
 	char RegDst;
 	//ALUop=0: add
@@ -146,7 +150,8 @@ void ID()
 
 	//RegWrite=0: don't write to register
 	//RegWrite=1: write to register
-	//RegWrite=2: write PC to register
+	////RegWrite=1: write ALUout to register rd
+	////RegWrite=2: write PC to register rd
 	char RegWrite;
 	//MemtoReg=0: send ALU's result to register
 	//MemtoReg=1: send Memory's result to register
@@ -547,8 +552,9 @@ void EX()
 	char MemtoReg = ID_EX.Ctrl_WB_MemtoReg;
 
 	//Branch PC calulate
-	if (Branch != 0) temp_PC = temp_PC + Imm;//SB & JAR
-	//??? or temp_PC+Imm-4
+	if (Branch != 0) temp_PC = temp_PC + Imm/4;//SB & JAR
+	//temp_PC+Imm/4-1 ?? 
+	//
 	else temp_PC = temp_PC;
 
 	//choose ALU input number
@@ -671,7 +677,7 @@ void EX()
 	EX_MEM_old.Reg_Dst = Reg_Dst;//???
 	EX_MEM_old.ALU_out = ALUout;
 	EX_MEM_old.Zero = Zero;
-	EX_MEM_old.Reg_Rt = Reg_Rd;//???
+	EX_MEM_old.Reg_Rd = Reg_Rd;//???
 
 	EX_MEM_old.Ctrl_M_Branch = Branch;
 	EX_MEM_old.Ctrl_M_MemWrite = MemWrite;
@@ -686,12 +692,82 @@ void EX()
 void MEM()
 {
 	//read EX_MEM
+	int temp_PC = EX_MEM.PC;
+	int Reg_Dst = EX_MEM.Reg_Dst;//???
+	REG ALUout = EX_MEM.ALU_out;
+	int Zero = EX_MEM.Zero;
+	REG Reg_Rs2 = EX_MEM.Reg_Rs2;
+
+	char Branch = EX_MEM.Ctrl_M_Branch;
+	char MemWrite = EX_MEM.Ctrl_M_MemWrite;
+	char MemRead = EX_MEM.Ctrl_M_MemRead;
+
+	char RegWrite = EX_MEM.Ctrl_WB_RegWrite;
+	char MemtoReg = EX_MEM.Ctrl_WB_MemtoReg;
 
 	//complete Branch instruction PC change
+	if (Branch != 0 && Zero == 0) PC = temp_PC;//跳转，设置新地址
 
 	//read / write memory
+	unsigned long long int Mem_read;
+	//MemRead=0: don't read from memory
+	//MemRead=1: read from memory, byte
+	//MemRead=2: read from memory, half word, 2 byte
+	//MemRead=3: read from memory, word, 4 byte
+	//MemRead=4: read from memory, double word, 8 byte	
+	if (MemRead == 1)
+	{
+		Mem_read = ext_signed(memory[ALUout]&0xFF, 1);
+	}
+	else if (MemRead == 2)
+	{
+		Mem_read = ext_signed(memory[ALUout] & 0xFFFF, 1);
+	}
+	else if (MemRead == 3)
+	{
+		Mem_read = ext_signed(memory[ALUout] & 0xFFFFFFFF, 1);
+	}
+	else if (MemRead == 4)
+	{
+		//注意小端法
+		//读两个memory
+		Mem_read = memory[ALUout]+(1<<31)*memory[ALUout+1];
+		//我觉得这个是小端法了，但不确定…
+
+	}
+
+	//write to memory
+	//MemWrite=0: don't write to memory
+	//MemWrite=1: write to memory, byte, [7:0]
+	//MemWrite=2: write to memory, half word[15:0]
+	//MemWrite=3: write to memory, word[31:0]
+	//MemWrite=4: write to memory, double word[63:0]	
+	if (MemWrite == 1)
+	{
+		memory[ALUout] = Reg_Rs2& 0xFF;
+	}
+	else if (MemWrite == 2)
+	{
+		memory[ALUout] = Reg_Rs2 & 0xFFFF;
+	}
+	else if (MemWrite == 3)
+	{
+		memory[ALUout] = Reg_Rs2 & 0xFFFFFFFF;
+	}
+	else if (MemWrite == 4)
+	{
+		//我感觉这是小端的放法，也比划了一下，然而还是可能出bugQAQ
+		memory[ALUout] = Reg_Rs2 & 0xFFFFFFFF;
+		memory[ALUout + 1] = Reg_Rs2& (0xFFFFFFFF << 32);
+	}
 
 	//write MEM_WB_old
+	MEM_WB_old.Mem_read = Mem_read;
+	MEM_WB_old.ALU_out = ALUout;
+	MEM_WB_old.Reg_Dst = Reg_Dst;
+	
+	MEM_WB_old.Ctrl_WB_RegWrite = RegWrite;
+	MEM_WB_old.Ctrl_WB_MemtoReg = MemtoReg;
 }
 
 
