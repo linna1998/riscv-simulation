@@ -18,7 +18,7 @@ struct IDEX {
 
 	char Ctrl_EX_ALUSrc;
 	char Ctrl_EX_ALUOp;
-	char Ctrl_EX_RegDst;
+	char Ctrl_EX_RegDst;//control信号
 
 	char Ctrl_M_Branch;
 	char Ctrl_M_MemWrite;
@@ -31,7 +31,7 @@ struct IDEX {
 
 struct EXMEM {
 	int PC;
-	int Reg_Dst;
+	int Reg_Dst;//int值，应该是rd值
 	REG ALU_out;
 	int Zero;
 	REG Reg_Rs2;//used in writing to memory
@@ -46,6 +46,7 @@ struct EXMEM {
 }EX_MEM, EX_MEM_old;
 
 struct MEMWB {
+	int PC;//用于WB里面写到寄存器，例如JAL指令
 	unsigned long long int Mem_read;//the data from the memory
 	REG ALU_out;
 	int Reg_Dst;

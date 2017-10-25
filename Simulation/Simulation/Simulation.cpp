@@ -552,7 +552,7 @@ void EX()
 	char MemtoReg = ID_EX.Ctrl_WB_MemtoReg;
 
 	//Branch PC calulate
-	if (Branch != 0) temp_PC = temp_PC + Imm/4;//SB & JAR
+	if (Branch != 0) temp_PC = temp_PC + Imm / 4;//SB & JAR
 	//temp_PC+Imm/4-1 ?? 
 	//
 	else temp_PC = temp_PC;
@@ -674,10 +674,11 @@ void EX()
 
 	//write EX_MEM_old
 	EX_MEM_old.PC = temp_PC;
-	EX_MEM_old.Reg_Dst = Reg_Dst;//???
+	//EX_MEM_old.Reg_Dst = Reg_Dst;//???
+	EX_MEM_old.Reg_Dst = rd;
 	EX_MEM_old.ALU_out = ALUout;
 	EX_MEM_old.Zero = Zero;
-	EX_MEM_old.Reg_Rd = Reg_Rd;//???
+	EX_MEM_old.Reg_Rs2 = Reg_Rs2;//
 
 	EX_MEM_old.Ctrl_M_Branch = Branch;
 	EX_MEM_old.Ctrl_M_MemWrite = MemWrite;
@@ -693,7 +694,8 @@ void MEM()
 {
 	//read EX_MEM
 	int temp_PC = EX_MEM.PC;
-	int Reg_Dst = EX_MEM.Reg_Dst;//???
+	int old_PC = PC;//保留跳转指令的跳转前的加了4的PC值，用于塞到寄存器里
+	int Reg_Dst = EX_MEM.Reg_Dst;//rd值
 	REG ALUout = EX_MEM.ALU_out;
 	int Zero = EX_MEM.Zero;
 	REG Reg_Rs2 = EX_MEM.Reg_Rs2;
@@ -717,7 +719,7 @@ void MEM()
 	//MemRead=4: read from memory, double word, 8 byte	
 	if (MemRead == 1)
 	{
-		Mem_read = ext_signed(memory[ALUout]&0xFF, 1);
+		Mem_read = ext_signed(memory[ALUout] & 0xFF, 1);
 	}
 	else if (MemRead == 2)
 	{
@@ -731,9 +733,8 @@ void MEM()
 	{
 		//注意小端法
 		//读两个memory
-		Mem_read = memory[ALUout]+(1<<31)*memory[ALUout+1];
+		Mem_read = memory[ALUout] + (1 << 31)*memory[ALUout + 1];
 		//我觉得这个是小端法了，但不确定…
-
 	}
 
 	//write to memory
@@ -744,7 +745,7 @@ void MEM()
 	//MemWrite=4: write to memory, double word[63:0]	
 	if (MemWrite == 1)
 	{
-		memory[ALUout] = Reg_Rs2& 0xFF;
+		memory[ALUout] = Reg_Rs2 & 0xFF;
 	}
 	else if (MemWrite == 2)
 	{
@@ -762,19 +763,45 @@ void MEM()
 	}
 
 	//write MEM_WB_old
+	MEM_WB_old.PC = old_PC;//保留的是原始PC+4的值，不是现在的PC或者temp_PC 
 	MEM_WB_old.Mem_read = Mem_read;
 	MEM_WB_old.ALU_out = ALUout;
 	MEM_WB_old.Reg_Dst = Reg_Dst;
-	
+
 	MEM_WB_old.Ctrl_WB_RegWrite = RegWrite;
 	MEM_WB_old.Ctrl_WB_MemtoReg = MemtoReg;
+	
 }
-
 
 //写回
 void WB()
 {
 	//read MEM_WB
+	int temp_PC = MEM_WB.PC;//用于送到rd里面去
+	unsigned long long int Mem_read = MEM_WB.Mem_read;
+	REG ALUout = MEM_WB.ALU_out;
+	int Reg_Dst = MEM_WB.Reg_Dst;//rd的值
+
+	//RegWrite=0: don't write to register
+	//RegWrite=1: write to register
+	////RegWrite=1: write ALUout to register rd
+	////RegWrite=2: write PC to register rd
+	//MemtoReg=0: send ALU's result to register
+	//MemtoReg=1: send Memory's result to register
+	//MemtoReg=2: send PC+4 to register
+	char  RegWrite = MEM_WB.Ctrl_WB_RegWrite;
+	char MemtoReg = MEM_WB.Ctrl_WB_MemtoReg;
+
+	//在MEM里面把PC就写回去啦~
 
 	//write reg
+	//啊Reg_Dst这里需要个什么东西把rd传过来…
+	//前面好像都错了QAQ要么就再加个变量把rd也传下来
+	//好吧我试试把rd一直传下来
+	if (RegWrite == 1)
+	{
+		if (MemtoReg == 0) reg[Reg_Dst] = ALUout;
+		else if (MemtoReg == 1) reg[Reg_Dst] = Mem_read;
+		else if (MemtoReg == 2) reg[Reg_Dst] = temp_PC;
+	}
 }
