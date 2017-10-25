@@ -1,3 +1,6 @@
+//todo:
+//Greencard changes 1.3 & 1.4
+
 #include "Simulation.h"
 using namespace std;
 
@@ -61,16 +64,15 @@ void simulate()
 	{
 		//运行
 		IF();
-		ID();
-		EX();
-		MEM();
-		WB();
-
 		//更新中间寄存器
 		IF_ID = IF_ID_old;
+		ID();
 		ID_EX = ID_EX_old;
+		EX();
 		EX_MEM = EX_MEM_old;
+		MEM();
 		MEM_WB = MEM_WB_old;
+		WB();
 
 		if (exit_flag == 1)
 			break;
@@ -80,7 +82,7 @@ void simulate()
 	}
 }
 
-
+//32位指令，64位寄存器
 //取指令
 void IF()
 {
@@ -100,15 +102,15 @@ void ID()
 	int EXTop = 0;
 	//the number needed to be extended
 	unsigned int EXTsrc = 0;
-	//RegDst=0: write into rd
-	//RegDst=1: write into PC
+	//RegDst=0: send ALUout into register
+	//RegDst=1: send ALUout into PC
 	//RegDst=2: don't write to register
 	char RegDst;
 	//ALUop=0: add
-	//ALUop=1: mul
+	//ALUop=1: mul, get the low 64 bits of multiple result
 	//ALUop=2: sub	
 	//ALUop=3: sll, shift left
-	//ALUop=4: get the high 32 bits of multiple result
+	//ALUop=4: mul, get the high 64 bits of multiple result
 	//ALUop=5: slt, set less than
 	//ALUop=6: xor
 	//ALUop=7: div
@@ -144,6 +146,7 @@ void ID()
 
 	//RegWrite=0: don't write to register
 	//RegWrite=1: write to register
+	//RegWrite=2: write PC to register
 	char RegWrite;
 	//MemtoReg=0: send ALU's result to register
 	//MemtoReg=1: send Memory's result to register
@@ -187,6 +190,7 @@ void ID()
 		//mul
 		else if (fuc3 == F3_ADD && fuc7 == F7_MUL)
 		{
+			//get the low 64 bits of multiplying
 			ALUop = 1;
 		}
 		//sub
@@ -202,7 +206,7 @@ void ID()
 		//mulh
 		else if (fuc3 == F3_SLL&& fuc7 == F7_MULH)
 		{
-			//get the high 32 bits of multiple result
+			//get the high 64 bits of multiple result
 			ALUop = 4;
 		}
 		//slt
@@ -266,6 +270,7 @@ void ID()
 		}
 		else if (fuc3 == F3_LW)
 		{
+			//R[rd] ← SignExt(Mem(R[rs1] + offset, word))
 			MemRead = 3;
 		}
 		else if (fuc3 == F3_LD)
@@ -324,7 +329,7 @@ void ID()
 	//I type 3
 	else if (OP == OP_ADDIW)
 	{
-		//R[rd] ← SignExt(R[rs1](31:0) + imm)
+		//R[rd] ← SignExt( (R[rs1](63:0) + SignExt(imm))[31:0] )
 		if (fuc3 == F3_ADDIW)
 		{
 			EXTop = 1;//sign extend
@@ -341,18 +346,18 @@ void ID()
 	}
 	//JALR
 	//ID:
-	//EX: PC_adder calculate PC+4, ALU calculate R[rs1]+{imm,1b'0}
+	//EX: PC_adder calculate PC+4, ALU calculate { (R[rs1]+imm) ,1b'0}
 	//MEM: 
 	//WB: PC+4-> R[rd], ALU result->PC
 	else if (OP == OP_JALR)
 	{
 		//???
 		//R[rd] ← PC + 4
-		//PC ← R[rs1] + {imm, 1b'0}
+		//PC ← { (R[rs1] + imm), 1b'0}
 		if (fuc3 == F3_JALR)
 		{
 			EXTop = 1;//sign extend
-			EXTsrc = imm_I * 2;
+			EXTsrc = imm_I;
 			RegDst = 0;
 			ALUop = 0;
 			ALUSrc = 1;
@@ -453,7 +458,8 @@ void ID()
 		//???
 		//get PC value as rs1 to ALU
 		EXTop = 1;//sign extend
-		EXTsrc = imm_U*(1<<12);
+		EXTsrc = imm_U*(1 << 12);
+		rs1 = -1;//special: rs1=-1 get rs1 from PC
 		RegDst = 0;//write to R[rd]
 		ALUop = 0;
 		ALUSrc = 1;
@@ -481,8 +487,17 @@ void ID()
 	}
 	//UI type
 	else if (OP == OP_JAL)
-	{		
+	{
 		//???
+		//R[rd] ← PC + 4
+		//PC ← PC + {imm, 1b'0}
+
+		//changed from JALR
+		//JALR's control part
+
+		rs1 = -1;//PC->PC+…
+
+
 	}
 
 	//write ID_EX_old
@@ -510,27 +525,139 @@ void ID()
 //执行
 void EX()
 {
-	//read ID_EX
+	//read ID_EX	
+	int Rd = ID_EX.Rd;
+	int Rs1 = ID_EX.Rs1;
+	int Rs2 = ID_EX.Rs2;
 	int temp_PC = ID_EX.PC;
-	char RegDst = ID_EX.Ctrl_EX_RegDst;
+	int Imm = ID_EX.Imm;
+	REG Reg_Rd = ID_EX.Reg_Rd;
+	REG Reg_Rs1 = ID_EX.Reg_Rs1;
+	REG Reg_Rs2 = ID_EX.Reg_Rs2;
+
+	char ALUSrc = ID_EX.Ctrl_EX_ALUSrc;
 	char ALUOp = ID_EX.Ctrl_EX_ALUOp;
+	char RegDst = ID_EX.Ctrl_EX_RegDst;
+
+	char Branch = ID_EX.Ctrl_M_Branch;
+	char MemWrite = ID_EX.Ctrl_M_MemWrite;
+	char MemRead = ID_EX.Ctrl_M_MemRead;
+
+	char RegWrite = ID_EX.Ctrl_WB_RegWrite;
+	char MemtoReg = ID_EX.Ctrl_WB_MemtoReg;
 
 	//Branch PC calulate
-	//...
+	if (Branch != 0) temp_PC = temp_PC + Imm;//SB & JAR
+	//??? or temp_PC+Imm-4
+	else temp_PC = temp_PC;
 
 	//choose ALU input number
-	//...
+	REG ALU_A = Reg_Rs1;
+	REG ALU_B = 0;
+	if (ALUSrc == 0) ALU_B = Reg_Rs2;
+	else ALU_B = Imm;
 
 	//alu calculate
-	int Zero;
+	int Zero;//the branch flag
+	//if (Branch==1) && (Zero==0) then jump to new PC
 	REG ALUout;
-	switch (ALUOp) {
-	default:;
+	switch (ALUOp)
+	{
+	case 0:
+	{
+		ALUout = ALU_A + ALU_B;
+		break;
+	}
+	case 1:
+	{
+		ALUout = ALU_A*ALU_B;//乘法的低64位
+		break;
+	}
+	case 2:
+	{
+		//Branch=2: branch if R[rs1]==R[rs2]
+		//Branch=3: branch if R[rs1]!=R[rs2]
+		//Branch=4: branch if R[rs1]<R[rs2]
+		//Branch=5: branch if R[rs1]>=R[rs2]
+
+		ALUout = ALU_A - ALU_B;
+		if (ALUout == 0 && Branch == 2) Zero = 0;
+		if (ALUout != 0 && Branch == 3) Zero = 0;
+		if (ALUout < 0 && Branch == 4) Zero = 0;
+		if (ALUout >= 0 && Branch == 5) Zero = 0;
+		break;
+	}
+	case 3:
+	{
+		ALUout = ALU_A << ALU_B;
+		break;
+	}
+	case 4:
+	{
+		//乘法的高64位
+		long long A_High = ((ALU_A & 0xFFFF0000) >> 32) & 0xFFFF;
+		long long A_Low = ALU_A & 0x0000FFFF;
+		long long B_High = ((ALU_B & 0xFFFF0000) >> 32) & 0xFFFF;
+		long long B_Low = ALU_B & 0x0000FFFF;
+
+		long long AHBH = A_High*B_High;
+		long long AHBL = ((A_High*B_Low) >> 32) & 0xFFFF;
+		long long ALBH = ((A_Low*B_High) >> 32) & 0xFFFF;
+
+		ALUout = AHBH + AHBL + ALBH;
+		break;
+	}
+	case 5:
+	{
+		ALUout = (ALU_A < ALU_B) ? 1 : 0;
+		break;
+	}
+	case 6:
+	{
+		ALUout = ALU_A ^ ALU_B;
+		break;
+	}
+	case 7:
+	{
+		ALUout = ALU_A / ALU_B;
+		break;
+	}
+	case 8:
+	{
+		ALUout = (unsigned)ALU_A >> ALU_B;//逻辑右移
+		break;
+	}
+	case 9:
+	{
+		ALUout = (signed)ALU_A >> ALU_B;//算术右移
+		break;
+	}
+	case 10:
+	{
+		ALUout = ALU_A / ALU_B;
+		break;
+	}
+	case 11:
+	{
+		ALUout = ALU_A % ALU_B;
+		break;
+	}
+	case 12:
+	{
+		ALUout = ALU_A & ALU_B;
+		break;
+	}
+	default: ALUout = 0;
 	}
 
 	//choose reg dst address
+	//RegDst=0: write into rd
+	//RegDst=1: write into PC
+	//RegDst=2: don't write to register
+	//???前面Reg_Dst还是char的…
+	//越写越乱了QAQ
 	int Reg_Dst;
-	if (RegDst)
+	if (RegDst == 0)
 	{
 
 	}
@@ -540,9 +667,19 @@ void EX()
 	}
 
 	//write EX_MEM_old
-	EX_MEM_old.ALU_out = ALUout;
 	EX_MEM_old.PC = temp_PC;
-	//.....
+	EX_MEM_old.Reg_Dst = Reg_Dst;//???
+	EX_MEM_old.ALU_out = ALUout;
+	EX_MEM_old.Zero = Zero;
+	EX_MEM_old.Reg_Rt = Reg_Rd;//???
+
+	EX_MEM_old.Ctrl_M_Branch = Branch;
+	EX_MEM_old.Ctrl_M_MemWrite = MemWrite;
+	EX_MEM_old.Ctrl_M_MemRead = MemRead;
+
+	EX_MEM_old.Ctrl_WB_RegWrite = RegWrite;
+	EX_MEM_old.Ctrl_WB_MemtoReg = MemtoReg;
+
 }
 
 //访问存储器

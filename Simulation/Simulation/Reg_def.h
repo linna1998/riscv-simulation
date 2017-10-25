@@ -31,10 +31,10 @@ struct IDEX {
 
 struct EXMEM {
 	int PC;
-	int Reg_dst;
+	int Reg_Dst;
 	REG ALU_out;
 	int Zero;
-	REG Reg_Rt;
+	REG Reg_Rt;//???
 
 	char Ctrl_M_Branch;
 	char Ctrl_M_MemWrite;
