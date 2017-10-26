@@ -1,3 +1,6 @@
+//LW
+//
+
 #include "Simulation.h"
 using namespace std;
 
@@ -261,7 +264,7 @@ void ID()
 		Branch = 0;
 		MemWrite = 0;
 		RegWrite = 1;
-		MemtoReg = 0;
+		MemtoReg = 1;
 		if (fuc3 == F3_LB)
 			//R[rd] ← SignExt(Mem(R[rs1] + offset, byte))
 		{
@@ -428,7 +431,7 @@ void ID()
 		EXTsrc = imm_SB * 2;
 		//send to PC's Adder and add with old PC
 		RegDst = 2;//don't write
-		ALUop = 0;//sub, R[rs1]-R[rs2] to describe whether they are same		
+		ALUop = 1;//sub, R[rs1]-R[rs2] to describe whether they are same		
 				  //maybe send the result to PC selecter
 		ALUSrc = 0;
 		MemRead = 0;
@@ -641,7 +644,7 @@ void EX()
 	}
 	case 10:
 	{
-		ALUout = ALU_A / ALU_B;
+		ALUout = ALU_A | ALU_B;
 		break;
 	}
 	case 11:
@@ -719,11 +722,15 @@ void MEM()
 	//MemRead=4: read from memory, double word, 8 byte	
 	if (MemRead == 1)
 	{
-		Mem_read = ext_signed(memory[ALUout] & 0xFF, 1);
+		if (ALUout % 4 == 0) Mem_read = ext_signed(memory[ALUout] & 0xFF, 1);
+		if (ALUout % 4 == 1) Mem_read = ext_signed(memory[ALUout] & 0xFF00, 1);
+		if (ALUout % 4 == 2) Mem_read = ext_signed(memory[ALUout] & 0xFF0000, 1);
+		if (ALUout % 4 == 3) Mem_read = ext_signed(memory[ALUout] & 0xFF000000, 1);
 	}
 	else if (MemRead == 2)
 	{
-		Mem_read = ext_signed(memory[ALUout] & 0xFFFF, 1);
+		if (ALUout % 4 == 0 || ALUout % 4 == 1) Mem_read = ext_signed(memory[ALUout] & 0xFFFF, 1);
+		if (ALUout % 4 == 2 || ALUout % 4 == 3)  Mem_read = ext_signed(((memory[ALUout] & 0xFFFF0000) >> 16) & 0xFFFF, 1);
 	}
 	else if (MemRead == 3)
 	{
@@ -733,7 +740,8 @@ void MEM()
 	{
 		//注意小端法
 		//读两个memory
-		Mem_read = memory[ALUout] + (1 << 31)*memory[ALUout + 1];
+		unsigned long long temp_mem = memory[ALUout + 1];
+		Mem_read = memory[ALUout] + (temp_mem << 32);
 		//我觉得这个是小端法了，但不确定…
 	}
 
@@ -745,11 +753,19 @@ void MEM()
 	//MemWrite=4: write to memory, double word[63:0]	
 	if (MemWrite == 1)
 	{
-		memory[ALUout] = Reg_Rs2 & 0xFF;
+		unsigned int temp_read = memory[ALUout&(~0x3)];//把ALUout搞成4的倍数，读出4个byte
+		unsigned int temp_write = Reg_Rs2 & 0xFF;
+		if (ALUout % 4 == 0) memory[ALUout] = (temp_read&(~0xFF)) + temp_write;
+		if (ALUout % 4 == 1) memory[ALUout - 1] = (temp_read&(~0xFF00)) + ((temp_write << 8) & 0xFF00);
+		if (ALUout % 4 == 2) memory[ALUout - 2] = (temp_read&(~0xFF0000)) + ((temp_write << 16) & 0xFF0000);
+		if (ALUout % 4 == 3) memory[ALUout - 3] = (temp_read&(~0xFF000000)) + ((temp_write << 24) & 0xFF000000);
 	}
-	else if (MemWrite == 2)
+	else if (MemWrite == 2)//
 	{
-		memory[ALUout] = Reg_Rs2 & 0xFFFF;
+		unsigned int temp_read = memory[ALUout&(~0x3)];//把ALUout搞成4的倍数，读出4个byte
+		unsigned int temp_write = Reg_Rs2 & 0xFFFF;
+		if (ALUout % 4 == 0 || ALUout % 4 == 1) memory[ALUout] = (temp_read&(~0xFFFF)) + temp_write;
+		if (ALUout % 4 == 2 || ALUout % 4 == 3) memory[ALUout - 2] = (temp_read & 0xFFFF) + ((temp_write << 16) & 0xFFFF0000);
 	}
 	else if (MemWrite == 3)
 	{
@@ -759,7 +775,8 @@ void MEM()
 	{
 		//我感觉这是小端的放法，也比划了一下，然而还是可能出bugQAQ
 		memory[ALUout] = Reg_Rs2 & 0xFFFFFFFF;
-		memory[ALUout + 1] = Reg_Rs2& (0xFFFFFFFF << 32);
+		unsigned long long temp_mask = (0xFFFFFFFF << 32);
+		memory[ALUout + 1] = (int)(Reg_Rs2&temp_mask);
 	}
 
 	//write MEM_WB_old
@@ -770,7 +787,7 @@ void MEM()
 
 	MEM_WB_old.Ctrl_WB_RegWrite = RegWrite;
 	MEM_WB_old.Ctrl_WB_MemtoReg = MemtoReg;
-	
+
 }
 
 //写回
