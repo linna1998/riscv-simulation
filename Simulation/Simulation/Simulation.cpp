@@ -1,52 +1,117 @@
 //Except ECALL
-
 #include "Simulation.h"
+#include <string.h>
 using namespace std;
 
 extern void read_elf();
-extern unsigned int cadr;
-extern unsigned int csize;
-extern unsigned int vadr;
+
+extern unsigned long long cadr;
+extern unsigned long long csize;
 extern unsigned long long gp;
-extern unsigned int madr;
-extern unsigned int endPC;
 extern unsigned int entry;
 extern FILE *file;
 
+// 单步调试flag，如果TF == 1，进入单步调试模式，每步输出寄存器堆
+static bool TF = false;
 
-//指令运行数
-long long inst_num = 0;
+// 系统调用退出指示
+#define RET_INST 0x00008067
 
-//系统调用退出指示
-int exit_flag = 0;
+// 打印寄存器堆
+void print_regs()
+{
+	printf("Register:\n");
+	for (int i = 0; i < 32; i++)
+	{
+		printf("[%3d] %10lld  ", i, reg[i]);
+		printf("[%3d] %10lld  ", i, reg[++i]);
+		printf("[%3d] %10lld  ", i, reg[++i]);
+		printf("[%3d] %10lld\n", i, reg[++i]);
+	}
+}
 
-//加载代码段
-//初始化PC
+// 打印代码段
+void print_memory()
+{
+	printf("Memory:\n");
+	for (int i = 0; i < (csize >> 2); i++)
+	{
+		printf(" %10x  ", memory[(cadr >> 2) + i]);
+		printf(" %10x  ", memory[(cadr >> 2) + ++i]);
+		printf(" %10x  ", memory[(cadr >> 2) + ++i]);
+		printf(" %10x\n", memory[(cadr >> 2) + ++i]);
+	}
+}
+
+// 加载代码段
 void load_memory()
 {
-	fseek(file, cadr, SEEK_SET);
-	fread(&memory[vadr >> 2], 1, csize, file);
-
-	vadr = vadr >> 2;
-	csize = csize >> 2;
+	if (fseek(file, cadr, 0))
+	{
+		perror("fseek");
+	}
+	if (!fread(&memory[cadr >> 2], 1, csize, file))
+	{
+		perror("fread");
+	} 
+	// 注意这里vadr换算到memory数组要除以4
+	 // 加载数据段啊傻子
 	fclose(file);
 }
 
-int main()
+int main(int argc, char* argv[])
 {
-	//解析elf文件
+	char filename[15] = "./test";
+	// Parse the arguments.
+	if (argc != 1)
+	{
+		if (strcmp(argv[1], "--TF") == 0)
+		{
+			cout << "TF   :  TF Mode." << endl;
+			cout << endl;
+			TF = true;
+		}
+		else if (strcmp(argv[1], "--help") == 0)
+		{
+			cout << "HELP :" << endl;
+			cout << "  --TF   : Enter step through mode." << endl;
+			cout << "  --name : The excutable file's name. './test' by default." << endl;
+			cout << "           For example, --name ./QuickSort" << endl;
+			return 0;
+		}
+		else if (strcmp(argv[1], "--name") == 0)
+		{
+			strcpy(filename, argv[2]);
+			return 0;
+		}
+		else
+		{
+			cout << "ERROR:  Unknown flags. See --help." << endl;
+			return 0;
+		}
+	}
+	// 解析elf文件
+	cout << "OPEN FILE: " << filename << endl << endl;
+	file = fopen(filename, "r+");
+	if (!file)
+	{
+		perror("Open executable file");
+		return false;
+	}
 	read_elf();
 
-	//加载内存
+	// 加载内存
 	load_memory();
 
-	//设置入口地址
+	// 设置入口地址
 	PC = entry >> 2;
 
-	//设置全局数据段地址寄存器
+	// 设置全局数据段地址寄存器
 	reg[3] = gp;
 
-	reg[2] = MAX / 2;//栈基址 （sp寄存器）
+	reg[2] = MAX / 2;  // 栈基址 （sp寄存器）
+
+	cout << "simulate start!" << endl;
 
 	simulate();
 
@@ -57,28 +122,45 @@ int main()
 
 void simulate()
 {
-	//结束PC的设置
-	int end = (int)endPC / 4 - 1;
-	while (PC != end)
+	while (memory[PC] != RET_INST)
 	{
-		//运行
+		if (TF)
+		{
+			printf("Instruction:  %08x\n", memory[PC]);
+		}
+		// 运行
 		IF();
-		//更新中间寄存器
+
+		// 更新中间寄存器
 		IF_ID = IF_ID_old;
+
 		ID();
+
 		ID_EX = ID_EX_old;
+
 		EX();
+
 		EX_MEM = EX_MEM_old;
+
 		MEM();
+
 		MEM_WB = MEM_WB_old;
+
 		WB();
 
-		if (exit_flag == 1)
-			break;
+		reg[0] = 0;  // 一直为零
 
-		reg[0] = 0;//一直为零
-
+		if (TF)
+		{
+			print_regs();
+			getchar();
+		}
 	}
+
+	printf("Return from main function.\n");
+	print_regs();
+	print_memory();
+	getchar();
 }
 
 //32位指令，64位寄存器
@@ -501,7 +583,7 @@ void ID()
 		//R[rd] ← old_PC*4 + 4
 		//PC ← ( old_PC *4 + {imm, 1b'0} )/4 //finished
 		EXTop = 1;//sign extend
-		EXTsrc = imm_UJ*2;
+		EXTsrc = imm_UJ * 2;
 		rs1 = 0;//reg[0]=0
 		RegDst = 0;//write to R[rd]
 		ALUop = 0;
@@ -560,7 +642,7 @@ void EX()
 	char MemtoReg = ID_EX.Ctrl_WB_MemtoReg;
 
 	//Branch PC calulate
-	if (Branch==1 || Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5) temp_PC = ((temp_PC - 1) * 4 + Imm) / 4;//SB & JAL	
+	if (Branch == 1 || Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5) temp_PC = ((temp_PC - 1) * 4 + Imm) / 4;//SB & JAL	
 	else temp_PC = temp_PC;
 	//Branch=6 JALR 在后面用到ALU结果更新
 
@@ -568,13 +650,13 @@ void EX()
 	REG ALU_A = Reg_Rs1;
 	REG ALU_B = 0;
 
-	if (Rs1 == -1) ALU_A = (temp_PC-1)*4;//used in AUIPC, ALU_A+ALU_B
+	if (Rs1 == -1) ALU_A = (temp_PC - 1) * 4;//used in AUIPC, ALU_A+ALU_B
 
 	if (ALUSrc == 0) ALU_B = Reg_Rs2;
 	else ALU_B = Imm;
 
 	//alu calculate
-	int Zero=1;//the branch flag
+	int Zero = 1;//the branch flag
 	//if (Branch== (2||3||4||5) ) && (Zero==0) then jump to new PC
 	REG ALUout;
 	switch (ALUOp)
@@ -707,7 +789,7 @@ void MEM()
 {
 	//read EX_MEM
 	int temp_PC = EX_MEM.PC;
-	int old_PC = PC-1;//保留跳转指令前的PC值，PC/4，用于之后进行变形后塞到寄存器里
+	int old_PC = PC - 1;//保留跳转指令前的PC值，PC/4，用于之后进行变形后塞到寄存器里
 	int Reg_Dst = EX_MEM.Reg_Dst;//rd值
 	REG ALUout = EX_MEM.ALU_out;
 	int Zero = EX_MEM.Zero;
@@ -721,7 +803,7 @@ void MEM()
 	char MemtoReg = EX_MEM.Ctrl_WB_MemtoReg;
 
 	//complete Branch instruction PC change
-	if ( (Branch == 2 || Branch==3 ||Branch==4 || Branch==5) && Zero == 0) PC = temp_PC;//跳转，设置新地址, SB type
+	if ((Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5) && Zero == 0) PC = temp_PC;//跳转，设置新地址, SB type
 	else if (Branch == 1 || Branch == 6) PC = temp_PC;// JAL&JALR
 
 	//read / write memory
@@ -828,6 +910,6 @@ void WB()
 	{
 		if (MemtoReg == 0) reg[Reg_Dst] = ALUout;
 		else if (MemtoReg == 1) reg[Reg_Dst] = Mem_read;
-		else if (MemtoReg == 2) reg[Reg_Dst] = temp_PC*4+4;//送到reg里面，所以最后不用/4
-	}	
+		else if (MemtoReg == 2) reg[Reg_Dst] = temp_PC * 4 + 4;//送到reg里面，所以最后不用/4
+	}
 }
