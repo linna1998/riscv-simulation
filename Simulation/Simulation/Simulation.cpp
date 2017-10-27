@@ -1,5 +1,4 @@
-//1. JARL LAL
-//2. 
+//Except ECALL
 
 #include "Simulation.h"
 using namespace std;
@@ -469,7 +468,7 @@ void ID()
 		//get PC value as rs1 to ALU
 		EXTop = 1;//sign extend
 		EXTsrc = imm_U*(1 << 12);
-		rs1 = -1;//special: rs1=-1 get rs1 from PC
+		rs1 = -1;//special: rs1=-1 get rs1 from PC, only in AUIPC
 		RegDst = 0;//write to R[rd]
 		ALUop = 0;
 		ALUSrc = 1;
@@ -501,9 +500,6 @@ void ID()
 		//???
 		//R[rd] ¡û old_PC*4 + 4
 		//PC ¡û ( old_PC *4 + {imm, 1b'0} )/4 //finished
-
-		rs1 = -1;//PC->PC+¡­
-
 		EXTop = 1;//sign extend
 		EXTsrc = imm_UJ*2;
 		rs1 = 0;//reg[0]=0
@@ -514,7 +510,7 @@ void ID()
 		MemRead = 0;
 		MemWrite = 0;
 		RegWrite = 1;
-		MemtoReg = 0;
+		MemtoReg = 2;
 	}
 
 	//write ID_EX_old
@@ -571,6 +567,9 @@ void EX()
 	//choose ALU input number
 	REG ALU_A = Reg_Rs1;
 	REG ALU_B = 0;
+
+	if (Rs1 == -1) ALU_A = (temp_PC-1)*4;//used in AUIPC, ALU_A+ALU_B
+
 	if (ALUSrc == 0) ALU_B = Reg_Rs2;
 	else ALU_B = Imm;
 
