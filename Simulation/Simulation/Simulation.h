@@ -100,12 +100,12 @@ unsigned int OP = 0;
 unsigned int fuc3 = 0, fuc7 = 0;
 int shamt = 0;
 int rs1 = 0, rs2 = 0, rd = 0;
-unsigned int imm_I=0;//I
+unsigned int imm_I = 0;//I
 unsigned int imm_S = 0;//S
 unsigned int imm_SB = 0;//SB
-unsigned int imm_U= 0;//U
+unsigned int imm_U = 0;//U
 unsigned int imm_UJ = 0;//UJ
-						  
+
 void load_memory();//¼ÓÔØÄÚ´æ
 
 void simulate();

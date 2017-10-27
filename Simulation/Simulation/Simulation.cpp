@@ -1,5 +1,5 @@
-//LW
-//
+//1. JARL LAL
+//2. 
 
 #include "Simulation.h"
 using namespace std;
@@ -88,8 +88,8 @@ void IF()
 {
 	//write IF_ID_old
 	IF_ID_old.inst = memory[PC];
-	PC = PC + 1;
-	IF_ID_old.PC = PC;
+	PC = PC + 1;//int memory[], so PC+1 means add 4 bytes
+	IF_ID_old.PC = PC;//存的是新的PC
 }
 
 //译码
@@ -128,12 +128,13 @@ void ID()
 	//ALUSrc=1: B from Extend part 
 	char ALUSrc;
 
-	//Branch=0: new_PC=PC+4
-	//Branch=1: new_PC=a new PC, choose to branch;
+	//Branch=0: new_PC=PC+1
+	//Branch=1: (old_PC*4+IMM*2)/4->PC, choose to branch in JAL
 	//Branch=2: branch if R[rs1]==R[rs2]
 	//Branch=3: branch if R[rs1]!=R[rs2]
 	//Branch=4: branch if R[rs1]<R[rs2]
 	//Branch=5: branch if R[rs1]>=R[rs2]
+	//Branch = 6: (ALU*2)/4->PC in JALR
 	char Branch;
 	//MemRead=0: don't read from memory
 	//MemRead=1: read from memory, byte
@@ -155,7 +156,7 @@ void ID()
 	char RegWrite;
 	//MemtoReg=0: send ALU's result to register
 	//MemtoReg=1: send Memory's result to register
-	//MemtoReg=2: send PC+4 to register
+	//MemtoReg=2: write old_PC*4+4 to R[rd] in JALR&JALto register
 	char MemtoReg;
 
 	OP = getbit(inst, 0, 6);
@@ -355,14 +356,14 @@ void ID()
 	}
 	//JALR
 	//ID:
-	//EX: PC_adder calculate PC+4, ALU calculate { (R[rs1]+imm) ,1b'0}
-	//MEM: 
-	//WB: PC+4-> R[rd], ALU result->PC
+	//EX: ALU calculate { (R[rs1]+imm) ,1b'0}
+	//MEM: 	
+	//WB: old_PC*4+4 -> R[rd], (ALU result*2)/4->PC
 	else if (OP == OP_JALR)
 	{
 		//???
-		//R[rd] ← PC + 4
-		//PC ← { (R[rs1] + imm), 1b'0}
+		//R[rd] ←old_PC*4+4
+		//PC ← { (R[rs1] + imm), 1b'0} /4
 		if (fuc3 == F3_JALR)
 		{
 			EXTop = 1;//sign extend
@@ -370,7 +371,7 @@ void ID()
 			RegDst = 0;
 			ALUop = 0;
 			ALUSrc = 1;
-			Branch = 1;//set a new PC value
+			Branch = 6;//(ALUresult*2)/4->PC in JALR
 			MemRead = 0;
 			MemWrite = 0;
 			RegWrite = 1;
@@ -441,7 +442,7 @@ void ID()
 		//need another ALU to add PC and imm!!!
 
 		//if(R[rs1] == R[rs2])
-		//PC ← PC + {offset, 1b'0}
+		//PC ← ( PC*4 + {offset, 1b'0} ) / 4
 		if (fuc3 == F3_BEQ)
 		{
 			Branch = 2;//branch if R[rs1]==R[rs2]
@@ -498,15 +499,22 @@ void ID()
 	else if (OP == OP_JAL)
 	{
 		//???
-		//R[rd] ← PC + 4
-		//PC ← PC + {imm, 1b'0}
-
-		//changed from JALR
-		//JALR's control part
+		//R[rd] ← old_PC*4 + 4
+		//PC ← ( old_PC *4 + {imm, 1b'0} )/4 //finished
 
 		rs1 = -1;//PC->PC+…
 
-
+		EXTop = 1;//sign extend
+		EXTsrc = imm_UJ*2;
+		rs1 = 0;//reg[0]=0
+		RegDst = 0;//write to R[rd]
+		ALUop = 0;
+		ALUSrc = 1;
+		Branch = 1;//(old_PC*4+EXTsrc)/4->PC
+		MemRead = 0;
+		MemWrite = 0;
+		RegWrite = 1;
+		MemtoReg = 0;
 	}
 
 	//write ID_EX_old
@@ -556,10 +564,9 @@ void EX()
 	char MemtoReg = ID_EX.Ctrl_WB_MemtoReg;
 
 	//Branch PC calulate
-	if (Branch != 0) temp_PC = temp_PC + Imm / 4;//SB & JAR
-	//temp_PC+Imm/4-1 ?? 
-	//
+	if (Branch==1 || Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5) temp_PC = ((temp_PC - 1) * 4 + Imm) / 4;//SB & JAL	
 	else temp_PC = temp_PC;
+	//Branch=6 JALR 在后面用到ALU结果更新
 
 	//choose ALU input number
 	REG ALU_A = Reg_Rs1;
@@ -568,8 +575,8 @@ void EX()
 	else ALU_B = Imm;
 
 	//alu calculate
-	int Zero;//the branch flag
-	//if (Branch==1) && (Zero==0) then jump to new PC
+	int Zero=1;//the branch flag
+	//if (Branch== (2||3||4||5) ) && (Zero==0) then jump to new PC
 	REG ALUout;
 	switch (ALUOp)
 	{
@@ -589,7 +596,7 @@ void EX()
 		//Branch=3: branch if R[rs1]!=R[rs2]
 		//Branch=4: branch if R[rs1]<R[rs2]
 		//Branch=5: branch if R[rs1]>=R[rs2]
-
+		Zero = 1;
 		ALUout = ALU_A - ALU_B;
 		if (ALUout == 0 && Branch == 2) Zero = 0;
 		if (ALUout != 0 && Branch == 3) Zero = 0;
@@ -675,6 +682,10 @@ void EX()
 	//{
 	//}
 
+
+	//(ALU result * 2) / 4->PC
+	if (Branch == 6) temp_PC = (ALUout * 2) / 4;//JALR fresh PC number
+
 	//write EX_MEM_old
 	EX_MEM_old.PC = temp_PC;
 	//EX_MEM_old.Reg_Dst = Reg_Dst;//???
@@ -697,7 +708,7 @@ void MEM()
 {
 	//read EX_MEM
 	int temp_PC = EX_MEM.PC;
-	int old_PC = PC;//保留跳转指令的跳转前的加了4的PC值，用于塞到寄存器里
+	int old_PC = PC-1;//保留跳转指令前的PC值，PC/4，用于之后进行变形后塞到寄存器里
 	int Reg_Dst = EX_MEM.Reg_Dst;//rd值
 	REG ALUout = EX_MEM.ALU_out;
 	int Zero = EX_MEM.Zero;
@@ -711,7 +722,8 @@ void MEM()
 	char MemtoReg = EX_MEM.Ctrl_WB_MemtoReg;
 
 	//complete Branch instruction PC change
-	if (Branch != 0 && Zero == 0) PC = temp_PC;//跳转，设置新地址
+	if ( (Branch == 2 || Branch==3 ||Branch==4 || Branch==5) && Zero == 0) PC = temp_PC;//跳转，设置新地址, SB type
+	else if (Branch == 1 || Branch == 6) PC = temp_PC;// JAL&JALR
 
 	//read / write memory
 	unsigned long long int Mem_read;
@@ -722,26 +734,26 @@ void MEM()
 	//MemRead=4: read from memory, double word, 8 byte	
 	if (MemRead == 1)
 	{
-		if (ALUout % 4 == 0) Mem_read = ext_signed(memory[ALUout] & 0xFF, 1);
-		if (ALUout % 4 == 1) Mem_read = ext_signed(memory[ALUout] & 0xFF00, 1);
-		if (ALUout % 4 == 2) Mem_read = ext_signed(memory[ALUout] & 0xFF0000, 1);
-		if (ALUout % 4 == 3) Mem_read = ext_signed(memory[ALUout] & 0xFF000000, 1);
+		if (ALUout % 4 == 0) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFF, 1);
+		if (ALUout % 4 == 1) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFF00, 1);
+		if (ALUout % 4 == 2) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFF0000, 1);
+		if (ALUout % 4 == 3) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFF000000, 1);
 	}
 	else if (MemRead == 2)
 	{
-		if (ALUout % 4 == 0 || ALUout % 4 == 1) Mem_read = ext_signed(memory[ALUout] & 0xFFFF, 1);
-		if (ALUout % 4 == 2 || ALUout % 4 == 3)  Mem_read = ext_signed(((memory[ALUout] & 0xFFFF0000) >> 16) & 0xFFFF, 1);
+		if (ALUout % 4 == 0 || ALUout % 4 == 1) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFFFF, 1);
+		if (ALUout % 4 == 2 || ALUout % 4 == 3)  Mem_read = ext_signed(((memory[ALUout >> 2] & 0xFFFF0000) >> 16) & 0xFFFF, 1);
 	}
 	else if (MemRead == 3)
 	{
-		Mem_read = ext_signed(memory[ALUout] & 0xFFFFFFFF, 1);
+		Mem_read = ext_signed(memory[ALUout >> 2] & 0xFFFFFFFF, 1);
 	}
 	else if (MemRead == 4)
 	{
 		//注意小端法
 		//读两个memory
-		unsigned long long temp_mem = memory[ALUout + 1];
-		Mem_read = memory[ALUout] + (temp_mem << 32);
+		unsigned long long temp_mem = memory[(ALUout >> 2) + 1];
+		Mem_read = memory[ALUout >> 2] + (temp_mem << 32);
 		//我觉得这个是小端法了，但不确定…
 	}
 
@@ -753,60 +765,58 @@ void MEM()
 	//MemWrite=4: write to memory, double word[63:0]	
 	if (MemWrite == 1)
 	{
-		unsigned int temp_read = memory[ALUout&(~0x3)];//把ALUout搞成4的倍数，读出4个byte
+		unsigned int temp_read = memory[(ALUout >> 2)&(~0x3)];//把ALUout搞成4的倍数，读出4个byte
 		unsigned int temp_write = Reg_Rs2 & 0xFF;
-		if (ALUout % 4 == 0) memory[ALUout] = (temp_read&(~0xFF)) + temp_write;
-		if (ALUout % 4 == 1) memory[ALUout - 1] = (temp_read&(~0xFF00)) + ((temp_write << 8) & 0xFF00);
-		if (ALUout % 4 == 2) memory[ALUout - 2] = (temp_read&(~0xFF0000)) + ((temp_write << 16) & 0xFF0000);
-		if (ALUout % 4 == 3) memory[ALUout - 3] = (temp_read&(~0xFF000000)) + ((temp_write << 24) & 0xFF000000);
+		if (ALUout % 4 == 0) memory[(ALUout >> 2)] = (temp_read&(~0xFF)) + temp_write;
+		if (ALUout % 4 == 1) memory[(ALUout >> 2)] = (temp_read&(~0xFF00)) + ((temp_write << 8) & 0xFF00);
+		if (ALUout % 4 == 2) memory[(ALUout >> 2)] = (temp_read&(~0xFF0000)) + ((temp_write << 16) & 0xFF0000);
+		if (ALUout % 4 == 3) memory[(ALUout >> 2)] = (temp_read&(~0xFF000000)) + ((temp_write << 24) & 0xFF000000);
 	}
 	else if (MemWrite == 2)//
 	{
-		unsigned int temp_read = memory[ALUout&(~0x3)];//把ALUout搞成4的倍数，读出4个byte
+		unsigned int temp_read = memory[(ALUout >> 2)];
 		unsigned int temp_write = Reg_Rs2 & 0xFFFF;
-		if (ALUout % 4 == 0 || ALUout % 4 == 1) memory[ALUout] = (temp_read&(~0xFFFF)) + temp_write;
-		if (ALUout % 4 == 2 || ALUout % 4 == 3) memory[ALUout - 2] = (temp_read & 0xFFFF) + ((temp_write << 16) & 0xFFFF0000);
+		if (ALUout % 4 == 0 || ALUout % 4 == 1) memory[(ALUout >> 2)] = (temp_read&(~0xFFFF)) + temp_write;
+		if (ALUout % 4 == 2 || ALUout % 4 == 3) memory[(ALUout >> 2)] = (temp_read & 0xFFFF) + ((temp_write << 16) & 0xFFFF0000);
 	}
 	else if (MemWrite == 3)
 	{
-		memory[ALUout] = Reg_Rs2 & 0xFFFFFFFF;
+		memory[(ALUout >> 2)] = Reg_Rs2 & 0xFFFFFFFF;
 	}
 	else if (MemWrite == 4)
 	{
 		//我感觉这是小端的放法，也比划了一下，然而还是可能出bugQAQ
-		memory[ALUout] = Reg_Rs2 & 0xFFFFFFFF;
-		unsigned long long temp_mask = (0xFFFFFFFF << 32);
-		memory[ALUout + 1] = (int)(Reg_Rs2&temp_mask);
+		memory[(ALUout >> 2)] = Reg_Rs2 & 0xFFFFFFFF;
+		unsigned long long temp_mask = (0xFFFFFFFF00000000);
+		memory[(ALUout >> 2) + 1] = (int)(Reg_Rs2&temp_mask);
 	}
 
 	//write MEM_WB_old
-	MEM_WB_old.PC = old_PC;//保留的是原始PC+4的值，不是现在的PC或者temp_PC 
+	MEM_WB_old.PC = old_PC;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
 	MEM_WB_old.Mem_read = Mem_read;
 	MEM_WB_old.ALU_out = ALUout;
 	MEM_WB_old.Reg_Dst = Reg_Dst;
 
 	MEM_WB_old.Ctrl_WB_RegWrite = RegWrite;
 	MEM_WB_old.Ctrl_WB_MemtoReg = MemtoReg;
-
 }
 
 //写回
 void WB()
 {
 	//read MEM_WB
-	int temp_PC = MEM_WB.PC;//用于送到rd里面去
+	int temp_PC = MEM_WB.PC;//用于送到rd里面去，是本指令的old_PC值，需要变换之后再放到寄存器里面
 	unsigned long long int Mem_read = MEM_WB.Mem_read;
 	REG ALUout = MEM_WB.ALU_out;
 	int Reg_Dst = MEM_WB.Reg_Dst;//rd的值
 
 	//RegWrite=0: don't write to register
-	//RegWrite=1: write to register
-	////RegWrite=1: write ALUout to register rd
-	////RegWrite=2: write PC to register rd
+	 //RegWrite=1: write to register	 
+	char  RegWrite = MEM_WB.Ctrl_WB_RegWrite;
+
 	//MemtoReg=0: send ALU's result to register
 	//MemtoReg=1: send Memory's result to register
-	//MemtoReg=2: send PC+4 to register
-	char  RegWrite = MEM_WB.Ctrl_WB_RegWrite;
+	//MemtoReg=2: write old_PC*4+4 to R[rd] in JALR&JALto register
 	char MemtoReg = MEM_WB.Ctrl_WB_MemtoReg;
 
 	//在MEM里面把PC就写回去啦~
@@ -819,6 +829,6 @@ void WB()
 	{
 		if (MemtoReg == 0) reg[Reg_Dst] = ALUout;
 		else if (MemtoReg == 1) reg[Reg_Dst] = Mem_read;
-		else if (MemtoReg == 2) reg[Reg_Dst] = temp_PC;
-	}
+		else if (MemtoReg == 2) reg[Reg_Dst] = temp_PC*4+4;//送到reg里面，所以最后不用/4
+	}	
 }
