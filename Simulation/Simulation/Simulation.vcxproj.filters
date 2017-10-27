@@ -26,10 +26,10 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Read_Elf.cpp">
+    <ClCompile Include="Simulation.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Simulation.cpp">
+    <ClCompile Include="Read_Elf.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

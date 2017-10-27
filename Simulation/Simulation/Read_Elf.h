@@ -4,19 +4,15 @@
 typedef struct {
 	unsigned char b[8];
 }int64;
-
 typedef struct {
 	unsigned char b[4];
 }int32;
-
 typedef struct {
 	unsigned char b[2];
 }int16;
-
 typedef struct {
 	unsigned char b;
 }int8;
-
 typedef unsigned long long Elf64_Addr;
 typedef unsigned long long Elf64_Off;
 typedef unsigned long long Elf64_Xword;
@@ -24,8 +20,6 @@ typedef unsigned long long Elf64_Sxword;
 typedef unsigned int Elf64_Word;
 typedef unsigned int Elf64_Sword;
 typedef unsigned short Elf64_Half;
-
-
 #define	EI_CLASS 4
 #define	EI_DATA 5
 #define	EI_VERSION 6
@@ -33,33 +27,26 @@ typedef unsigned short Elf64_Half;
 #define	EI_ABIVERSION 8
 #define	EI_PAD 9
 #define	EI_NIDENT 16
-
-
 /** EI_CLASS */
 #define ELFCLASSNONE 0  // Invalid class
 #define ELFCLASS32 1  // 32-bit objects
 #define ELFCLASS64 2  // 64-bit objects
-
 /** EI_DATA */
 #define ELFDATANONE 0  // Invalid data encoding
 #define ELFDATALSB 1  // Little endian, the high bit is in low address
 #define ELFDATAMSB 2  // Big endian, the high bit is in high address
-
 /** e_type */
 #define ET_NONE 0  // No file type
 #define ET_REL 1  // Relocatable file
 #define ET_EXEC 2  // Executable file
 #define ET_DYN 3  // Shared object file
 #define ET_CORE 4  // Core file
-
 /** EI_VERSION */
 #define EV_NONE 0  // Invalid version
 #define EV_CURRENT 1  // Current version
-
 /** e_machine */
 #define EM_NONE 0  // No machine
 #define EM_M32 1  // AT&T WE 32100
-
 /** sh_type */
 #define SHT_NULL 0  // Marks the section header as inactive
 #define SHT_PROGBITS 1
@@ -77,11 +64,9 @@ typedef unsigned short Elf64_Half;
 #define SHT_HIPROC 0x7fffffff
 #define SHT_LOUSER 0x80000000
 #define SHT_HIUSER 0xffffffff
-
 /** Segment types */
 #define PT_NULL 0
 #define PT_LOAD	1
-
 /** sh_flags */
 #define SHF_WRITE 0x1
 #define SHF_ALLOC 0x2
@@ -89,18 +74,15 @@ typedef unsigned short Elf64_Half;
 #define SHF_RELA_LIVEPATCH 0x00100000
 #define SHF_RO_AFTER_INIT 0x00200000
 #define SHF_MASKPROC 0xf0000000
-
 /** st_info */
 #define ELF32_ST_BIND(i) ((i)>>4)
 #define ELF32_ST_TYPE(i) ((i)&0xf)
-
 /** stb bind type */
 #define STB_LOCAL 0
 #define STB_GLOBAL 1
 #define STB_WEAK 2
 #define STB_LOPROC 13
 #define STB_HIPROC 15
-
 /** ELF32_ST_TYPE */
 #define STT_NOTYPE 0
 #define STT_OBJECT 1
@@ -109,7 +91,6 @@ typedef unsigned short Elf64_Half;
 #define STT_FILE 4
 #define STT_LOPROC 13
 #define STT_HIPROC 15
-
 #define	SHN_UNDEF 0
 #define	SHN_LOPROC 0xFF00
 #define	SHN_HIPROC 0xFF1F
@@ -117,8 +98,6 @@ typedef unsigned short Elf64_Half;
 #define	SHN_HIOS 0xFF3F
 #define	SHN_ABS 0xFFF1
 #define	SHN_COMMON 0xFFF2
-
-
 typedef struct
 {
 	unsigned char e_ident[16]; /* ELF identification */
@@ -136,7 +115,6 @@ typedef struct
 	Elf64_Half e_shnum; /* Number of section header entries */
 	Elf64_Half e_shstrndx; /* Section name string table index */
 } Elf64_Ehdr;
-
 typedef struct
 {
 	Elf64_Word sh_name; /* Section name */
@@ -150,7 +128,6 @@ typedef struct
 	Elf64_Xword sh_addralign; /* Address alignment boundary */
 	Elf64_Xword sh_entsize; /* Size of entries, if section has table */
 } Elf64_Shdr;
-
 typedef struct
 {
 	Elf64_Word st_name; /* Symbol name */
@@ -160,8 +137,6 @@ typedef struct
 	Elf64_Addr st_value; /* Symbol value */
 	Elf64_Xword st_size; /* Size of object (e.g., common) */
 } Elf64_Sym;
-
-
 typedef struct
 {
 	Elf64_Word p_type; /* Type of segment */
@@ -174,37 +149,25 @@ typedef struct
 	Elf64_Xword p_align; /* Alignment of segment */
 } Elf64_Phdr;
 
-
 void read_elf();
 void read_Elf_header();
 void read_elf_sections();
 void read_symtable();
 void read_Phdr();
-
-
 //代码段在解释文件中的偏移地址
 unsigned long long cadr = 0;    //////////////////////////////////////////////
-
 								//代码段的长度
 unsigned long long csize = 0;      ///////////////////////////////////////////////
-
 								   //代码段在内存中的虚拟地址
 unsigned int vadr = 0;
-
 //全局数据段在内存的地址
 unsigned long long gp = 0;
-
 //main函数在内存中地址
 unsigned int madr = 0;
 //main函数在ELF文件中的地址
 unsigned long long main_adr;
-
 //程序结束时的PC
 unsigned int endPC = 0;
-
 //程序的入口地址
 unsigned int entry = 0;
-
 FILE *file = NULL;
-
-

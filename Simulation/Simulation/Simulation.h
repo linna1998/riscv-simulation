@@ -2,8 +2,7 @@
 #include<iostream>
 #include<stdio.h>
 #include<math.h>
-#include <io.h>
-#include <process.h>
+
 #include<time.h>
 #include<stdlib.h>
 #include"Reg_def.h"
@@ -85,7 +84,10 @@
 //UJ type
 #define OP_JAL 0x6f
 
-#define MAX 100000000
+#define OP_ADDW 0x3B
+#define F3_ADDW 0
+
+#define MAX 0x10000000
 
 //Ö÷´æ
 unsigned int memory[MAX] = { 0 };
@@ -136,7 +138,7 @@ unsigned int getbit(unsigned inst, int s, int e)
 	for (int i = s; i <= e; i++)
 		mask += (1 << i);
 	inst = inst&mask;
-	inst = (inst >> s);
+	inst = (((int)inst) >> s);
 	return inst;
 }
 
@@ -148,7 +150,13 @@ long long int ext_signed(unsigned int src, int bit)
 	//bit=1: sign extend
 	long long int result = src;
 	long long int mask = (1 << 31);
-	if ((result&mask) && (bit == 0)) result = result & 0xFFFF;
+	if ((result&mask) && (bit == 0)) result = result & 0xFFFFFFFF;
+
+	if (result&mask)
+	{
+		for (int i = 63; i >= 32; i--) result |= ((long long int)1 << i);
+	}
+
 	return result;
 }
 #pragma once
