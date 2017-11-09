@@ -18,11 +18,18 @@ unsigned long long symtab_size = 0;
 //String table 字符串表在文件中地址，其内容包括.symtab和.debug节中的符号表e
 unsigned long long strtab_off = 0;
 unsigned long long strtab_size = 0;
+unsigned long long main_size = 0;
 
 extern unsigned long long cadr;
 extern unsigned long long csize;
+extern unsigned long long dadr;
+extern unsigned long long dsize;
+extern unsigned long long radr;
+extern unsigned long long rsize;
 extern unsigned long long main_adr;
+extern unsigned long long gp;
 extern unsigned int entry;
+extern unsigned int endPC;
 
 
 bool open_file()
@@ -56,7 +63,9 @@ void read_elf()
 	fclose(elf);
 
 	// entry = main在memory  = main在代码段中的地址
-	entry = main_adr - 0x10000;
+	printf("main_adr: %lx\n", main_adr);
+	entry = main_adr;
+	endPC = entry + main_size - 4;
 }
 
 void read_Elf_header()
@@ -190,8 +199,13 @@ void read_elf_sections()
 		}
 		if (!strcmp((const char*)(name + elf64_shdr.sh_name), ".text"))
 		{
-			cadr = elf64_shdr.sh_offset;
+			cadr = elf64_shdr.sh_addr;
 			csize = elf64_shdr.sh_size;
+		}
+		if (!strcmp((const char*)(name + elf64_shdr.sh_name), ".data"))
+		{
+			dadr = elf64_shdr.sh_addr;
+			dsize = elf64_shdr.sh_size;
 		}
 
 
@@ -306,6 +320,18 @@ void read_symtable()
 		if (!strcmp((const char*)(sysname + elf64_sym.st_name), "main"))
 		{
 			main_adr = elf64_sym.st_value;
+			main_size = elf64_sym.st_size;
+
+		}
+		if (!strcmp((const char*)(sysname + elf64_sym.st_name), "result"))
+		{
+			radr = elf64_sym.st_value;
+			rsize = elf64_sym.st_size;
+
+		}
+		if (!strcmp((const char*)(sysname + elf64_sym.st_name), "_gp"))
+		{
+			gp = elf64_sym.st_value;
 		}
 
 

@@ -34,6 +34,12 @@
 #define F3_AND 0x7
 #define F7_AND 0
 
+// RW Type
+#define OP_ADDW 0x3B
+#define F3_ADDW 0
+#define F7_ADDW 0
+#define F7_MULW 1
+
 //I type 1
 #define OP_LB 3
 #define F3_LB 0
@@ -83,9 +89,6 @@
 
 //UJ type
 #define OP_JAL 0x6f
-
-#define OP_ADDW 0x3B
-#define F3_ADDW 0
 
 #define MAX 0x10000000
 
