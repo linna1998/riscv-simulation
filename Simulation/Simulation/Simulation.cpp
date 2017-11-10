@@ -568,6 +568,48 @@ void ID()
 			RegWrite = 1;
 			MemtoReg = 0;
 		}
+		//SLLIW
+		else if (fuc3 == F3_SLLIW)
+		{
+			EXTop = 1;//sign extend
+			EXTsrc = shamt;
+			RegDst = 0;
+			ALUop = 3;
+			ALUSrc = 1;
+			Branch = 0;
+			MemRead = 0;
+			MemWrite = 0;
+			RegWrite = 1;
+			MemtoReg = 0;
+		}
+		//SRLIW
+		else if (fuc3 == F3_SRLIW && fuc7==F7_SRLIW)
+		{
+			EXTop = 1;//sign extend
+			EXTsrc = shamt;
+			RegDst = 0;
+			ALUop = 8;
+			ALUSrc = 1;
+			Branch = 0;
+			MemRead = 0;
+			MemWrite = 0;
+			RegWrite = 1;
+			MemtoReg = 0;
+		}
+		//SRAIW
+		else if (fuc3 == F3_SRLIW && fuc7 == F7_SRAIW)
+		{
+			EXTop = 1;//sign extend
+			EXTsrc = shamt;
+			RegDst = 0;
+			ALUop = 9;
+			ALUSrc = 1;
+			Branch = 0;
+			MemRead = 0;
+			MemWrite = 0;
+			RegWrite = 1;
+			MemtoReg = 0;
+		}
 	}
 	//JALR
 	//ID:

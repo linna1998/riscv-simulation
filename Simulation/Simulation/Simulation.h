@@ -63,11 +63,17 @@
 //I type 3
 #define OP_ADDIW 0x1B
 #define F3_ADDIW 0
+#define F3_SLLIW 1
+#define F3_SRLIW 5
+#define F7_SRLIW 0
+#define F7_SRAIW 32
+
 #define OP_JALR 0x67
 #define F3_JALR 0
 #define OP_ECALL 0x73
 #define F3_ECALL 0
 #define F7_ECALL 0
+
 
 //S type
 #define OP_S 0x23
