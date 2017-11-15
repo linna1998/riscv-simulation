@@ -223,106 +223,114 @@ void simulate()
 {
 	state = 2;
 	while ((PC * 4) != endPC)
-	{		
+	{
 		if (TF)
 		{
 			printf("[TF] Instruction:  %08x\n", memory[PC]);
 			printf("PC              :  %08X\n", PC * 4);
 		}
-		
-		/*
+
 		// 运行
 		switch (state)
 		{
-		// If state = 0, then come to this state 
-		case 0:
+			// If state = 0, then come to this state 
+		case (STATE_IF):
+		{
+			IF();
+			IF_ID = IF_ID_old;
+			state = STATE_ID;
+			break;
+		}
+		case (STATE_ID):
 		{
 			ID();
-			ID_EX = ID_EX_old;		
-			state = 1;
+			ID_EX = ID_EX_old;
+			//set state in ID();
+			break;
 		}
-		case 1:
+		case (STATE_EX_R):
+		{
+			EX();
+			EX_WB = EX_WB_old;
+			state = STATE_WB_R;
+			break;
+		}
+		case (STATE_EX_MUL):
+		{
+			EX();
+			EX_WB = EX_WB_old;
+			state = STATE_WB_R;
+			break;
+		}
+		case (STATE_EX_DIV):
+		{
+			EX();
+			EX_WB = EX_WB_old;
+			state = STATE_WB_R;
+			break;
+		}
+		case (STATE_EX_LB):
 		{
 			EX();
 			EX_MEM = EX_MEM_old;
-			EX_WB = EX_WB_old;
-			// Set state in EX() function
+			state = STATE_MEM_LB;
+			break;
 		}
-		// EX in BEQ & Equal
-		case 2:
+		case (STATE_EX_S):
 		{
-			IF();
-			state = 0;
+			EX();
+			EX_MEM = EX_MEM_old;
+			state = STATE_MEM_S;
+			break;
 		}
-		case 3:
+		case (STATE_EX_SB):
 		{
-			IF();
-			state = 0;
+			EX();			
+			state = STATE_IF;
+			break;
 		}
-		case 4:
-		{
-			WB();
-			state = 5;
-		}
-		case 5:
-		{
-			IF();
-			state = 0;
-		}
-		case 6:
-		{
-			WB();
-			state = 5;
-		}
-		case 7:
-		{
-			IF();
-			state = 0;
-		}
-		case 8:
+		case (STATE_MEM_LB):
 		{
 			MEM();
 			MEM_WB = MEM_WB_old;
-			state = 9;
+			state = STATE_WB_LB;
+			break;
 		}
-		case 9:
-		{
-			WB();
-			state = 10;
-		}
-		case 10:
-		{
-			IF();
-			state = 0;
-		}
-		case 11:
+		case (STATE_MEM_S):
 		{
 			MEM();
-			MEM_WB = MEM_WB_old;
-			state = 12;
+			state = STATE_IF;
+			break;
+
 		}
-		case 12:
+		case (STATE_WB_R):
 		{
-			IF();
-			state = 0;
-		}		
+			WB();
+			state = STATE_IF;
+			break;
 		}
-		*/
+		case (STATE_WB_LB):
+		{
+			WB();
+			state = STATE_IF;
+			break;
+		}
+		}
 
-		IF();
-		// 更新中间寄存器
-		IF_ID = IF_ID_old;
+		//IF();
+		//// 更新中间寄存器
+		//IF_ID = IF_ID_old;
 
-		ID();
-		ID_EX = ID_EX_old;
+		//ID();
+		//ID_EX = ID_EX_old;
 
-		EX();
-		EX_MEM = EX_MEM_old;
+		//EX();
+		//EX_MEM = EX_MEM_old;
 
-		MEM();
-		MEM_WB = MEM_WB_old;
+		//MEM();
+		//MEM_WB = MEM_WB_old;
 
-		WB();
+		//WB();
 
 		reg[0] = 0;  // 一直为零
 
@@ -445,9 +453,12 @@ void ID()
 	int temp_4 = getbit(inst, 31, 31)*(1 << 20);//UJ
 	imm_UJ = temp_1 + temp_2 + temp_3 + temp_4;
 
+	int next_state = 0;
+
 	//R type
 	if (OP == OP_R)
 	{
+		next_state = STATE_EX_R;  // Except 64-bit multiple and div,rem
 		//same control parts
 		EXTop = 0;
 		ALUSrcA = 0;
@@ -498,6 +509,7 @@ void ID()
 		else if (fuc3 == F3_XOR&& fuc7 == F7_DIV)
 		{
 			ALUop = 7;//div, /
+			next_state = STATE_EX_DIV;
 		}
 		else if (fuc3 == F3_SRL&& fuc7 == F7_SRL)
 		{
@@ -515,6 +527,7 @@ void ID()
 		{
 			//R[rd] ← R[rs1] % R[rs2], the remaining part
 			ALUop = 11;
+			next_state = STATE_EX_DIV;
 		}
 		else if (fuc3 == F3_AND&& fuc7 == F7_AND)
 		{
@@ -524,6 +537,7 @@ void ID()
 	//RW
 	else if (OP == OP_ADDW)
 	{
+		 next_state = STATE_EX_R;
 		// EXTop no need
 		// EXTsrc no need
 		ALUSrcA = 0;
@@ -545,6 +559,7 @@ void ID()
 	//I type 1
 	else if (OP == OP_LB)
 	{
+		next_state = STATE_EX_LB;
 		//same control parts
 		EXTop = 1;//sign extend
 		EXTsrc = imm_I;
@@ -578,6 +593,7 @@ void ID()
 	//I type 2
 	else if (OP == OP_ADDI)
 	{
+		next_state = STATE_EX_R;
 		//same control parts
 		EXTop = 1;//sign extend
 		EXTsrc = imm_I;//except the shifts, they use shamt
@@ -628,6 +644,7 @@ void ID()
 	//I type 3
 	else if (OP == OP_ADDIW)
 	{
+		next_state = STATE_EX_R;
 		//R[rd] ← SignExt( (R[rs1](63:0) + SignExt(imm))[31:0] )
 		if (fuc3 == F3_ADDIW)
 		{
@@ -692,6 +709,8 @@ void ID()
 	//WB: old_PC*4+4 -> R[rd], (ALU result*2)/4->PC
 	else if (OP == OP_JALR)
 	{
+		
+		next_state = STATE_EX_R;
 		//???
 		//R[rd] ←old_PC*4+4
 		//PC ← { (R[rs1] + imm), 1b'0} /4
@@ -712,6 +731,7 @@ void ID()
 	}
 	else if (OP == OP_ECALL)
 	{
+		next_state = STATE_EX_R;
 		//Transfers control to operating system)
 		//a0 = 1 is print value of a1 as an integer.
 		//a0 = 10 is exit or end of code indicator
@@ -724,6 +744,7 @@ void ID()
 	//S type
 	else if (OP == OP_S)
 	{
+		next_state = STATE_EX_S;
 		//same control parts
 		EXTop = 1;//sign extend
 		EXTsrc = imm_S;
@@ -757,6 +778,7 @@ void ID()
 	//SB type
 	else if (OP == OP_SB)
 	{
+		next_state = STATE_EX_SB;
 		//???
 		//same control parts
 		EXTop = 1;//signed extern, but not used in this ALU			
@@ -796,6 +818,7 @@ void ID()
 	//R[rd] ← PC + {offset, 12'b0}
 	else if (OP == OP_AUIPC)
 	{
+		next_state = STATE_EX_R;
 		//???
 		//get PC value as rs1 to ALU
 		EXTop = 1;//sign extend
@@ -813,6 +836,7 @@ void ID()
 	//R[rd] ← {offset, 12'b0}
 	else if (OP == OP_LUI)
 	{
+		next_state = STATE_EX_R;
 		EXTop = 1;//sign extend
 		EXTsrc = imm_U*(1 << 12);
 		rs1 = 0;//reg[0]=0
@@ -831,6 +855,7 @@ void ID()
 		//???
 		//R[rd] ← old_PC*4 + 4
 		//PC ← ( old_PC *4 + {imm, 1b'0} )/4 //finished
+		next_state = STATE_EX_R;
 		EXTop = 1;//sign extend
 		EXTsrc = ext_signed(imm_UJ, 1);
 		rs1 = 0;//reg[0]=0
@@ -844,12 +869,13 @@ void ID()
 		MemtoReg = 2;
 	}
 
+	state = next_state;
 	//write ID_EX_old
-	ID_EX_old.Rd = rd;	
+	ID_EX_old.Rd = rd;
 	ID_EX_old.PC = temp_PC;
 	ID_EX_old.Imm = ext_signed(EXTsrc, EXTop);
 	ID_EX_old.Reg_Rs1 = reg[rs1];  // 译码阶段取操作数
-	ID_EX_old.Reg_Rs2 = reg[rs2];
+	ID_EX_old.Reg_Rs2 = reg[rs2];	
 
 	ID_EX_old.Ctrl_EX_ALUSrcA = ALUSrcA;
 	ID_EX_old.Ctrl_EX_ALUSrcB = ALUSrcB;
@@ -911,7 +937,7 @@ void EX()
 
 	//alu calculate
 	char Zero = 1;//the branch flag
-     //if (Branch== (2||3||4||5) ) && (Zero==0) then jump to new PC
+	 //if (Branch== (2||3||4||5) ) && (Zero==0) then jump to new PC
 	REG ALUout;
 	switch (ALUOp)
 	{
@@ -1026,10 +1052,10 @@ void EX()
 	else if (Branch == 1 || Branch == 6) PC = temp_PC;// JAL&JALR
 
 	//write EX_MEM_old
-	EX_MEM_old.PC = old_PC-1;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
+	EX_MEM_old.PC = old_PC - 1;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
 	EX_MEM_old.Rd = Rd;
 	EX_MEM_old.ALU_out = ALUout;
-	
+
 	EX_MEM_old.Reg_Rs2 = Reg_Rs2;
 
 	EX_MEM_old.Ctrl_M_Branch = Branch;
@@ -1041,7 +1067,7 @@ void EX()
 	EX_MEM_old.Ctrl_WB_MemtoReg = MemtoReg;
 
 	//write EX_WB_old
-	EX_WB_old.PC = old_PC -1;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
+	EX_WB_old.PC = old_PC - 1;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
 	EX_WB_old.ALU_out = ALUout;
 	EX_WB_old.Rd = Rd;
 	EX_WB_old.Ctrl_WB_RegWrite = RegWrite;
@@ -1054,7 +1080,7 @@ void MEM()
 	//read EX_MEM
 	int old_PC = EX_MEM.PC;//保留跳转指令前的PC值，PC/4，用于之后进行变形后塞到寄存器里
 	int Rd = EX_MEM.Rd;//rd值
-	REG ALUout = EX_MEM.ALU_out;	
+	REG ALUout = EX_MEM.ALU_out;
 	REG Reg_Rs2 = EX_MEM.Reg_Rs2;
 
 	char Branch = EX_MEM.Ctrl_M_Branch;
@@ -1063,7 +1089,7 @@ void MEM()
 	char MemRead = EX_MEM.Ctrl_M_MemRead;
 
 	char RegWrite = EX_MEM.Ctrl_WB_RegWrite;
-	char MemtoReg = EX_MEM.Ctrl_WB_MemtoReg;	
+	char MemtoReg = EX_MEM.Ctrl_WB_MemtoReg;
 
 	//read / write memory
 	unsigned long long int Mem_read;
@@ -1144,20 +1170,49 @@ void MEM()
 //写回
 void WB()
 {
-	//read MEM_WB
-	int temp_PC = MEM_WB.PC;//用于送到rd里面去，是本指令的old_PC值，需要变换之后再放到寄存器里面
-	unsigned long long int Mem_read = MEM_WB.Mem_read;
-	REG ALUout = MEM_WB.ALU_out;
-	int Rd = MEM_WB.Rd;//rd的值
+	int temp_PC;
+	unsigned long long int Mem_read;
+	REG ALUout;
+	int Rd;
+	char  RegWrite;
+	char MemtoReg;
+	if (state == STATE_WB_LB)
+	{
+		//read from MEM_WB
+		temp_PC = MEM_WB.PC;//用于送到rd里面去，是本指令的old_PC值，需要变换之后再放到寄存器里面
+		Mem_read = MEM_WB.Mem_read;
+		ALUout = MEM_WB.ALU_out;
+		Rd = MEM_WB.Rd;//rd的值
 
-	//RegWrite=0: don't write to register
-	 //RegWrite=1: write to register	 
-	char  RegWrite = MEM_WB.Ctrl_WB_RegWrite;
+		//RegWrite=0: don't write to register
+		 //RegWrite=1: write to register	 
+		RegWrite = MEM_WB.Ctrl_WB_RegWrite;
 
-	//MemtoReg=0: send ALU's result to register
-	//MemtoReg=1: send Memory's result to register
-	//MemtoReg=2: write old_PC*4+4 to R[rd] in JALR&JALto register
-	char MemtoReg = MEM_WB.Ctrl_WB_MemtoReg;
+		//MemtoReg=0: send ALU's result to register
+		//MemtoReg=1: send Memory's result to register
+		//MemtoReg=2: write old_PC*4+4 to R[rd] in JALR&JALto register
+		MemtoReg = MEM_WB.Ctrl_WB_MemtoReg;
+	}
+	else if (state == STATE_WB_R)
+	{
+		//read from EX_WB
+		temp_PC = EX_WB.PC;//用于送到rd里面去，是本指令的old_PC值，需要变换之后再放到寄存器里面		
+		ALUout = EX_WB.ALU_out;
+		Rd = EX_WB.Rd;//rd的值
+
+		//RegWrite=0: don't write to register
+		//RegWrite=1: write to register	 
+		RegWrite = EX_WB.Ctrl_WB_RegWrite;
+
+		//MemtoReg=0: send ALU's result to register
+		//MemtoReg=1: send Memory's result to register
+		//MemtoReg=2: write old_PC*4+4 to R[rd] in JALR&JALto register
+		MemtoReg = EX_WB.Ctrl_WB_MemtoReg;
+	}
+	else
+	{
+
+	}
 
 	//在EX里面把PC就写回去啦~
 

@@ -96,6 +96,20 @@
 //UJ type
 #define OP_JAL 0x6f
 
+// Define the states for multiple 
+#define STATE_IF 0
+#define STATE_ID 1
+#define STATE_EX_R 2
+#define STATE_EX_MUL 3
+#define STATE_EX_DIV 4
+#define STATE_EX_LB 5
+#define STATE_EX_S 6
+#define STATE_EX_SB 7
+#define STATE_MEM_LB 8
+#define STATE_MEM_S 9
+#define STATE_WB_R 10
+#define STATE_WB_LB 11
+
 #define MAX 0x10000000
 
 //Ö÷´æ
@@ -116,8 +130,6 @@ unsigned int imm_S = 0;//S
 unsigned int imm_SB = 0;//SB
 unsigned int imm_U = 0;//U
 unsigned int imm_UJ = 0;//UJ
-
-void load_memory();//¼ÓÔØÄÚ´æ
 
 void simulate();
 

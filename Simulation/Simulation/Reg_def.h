@@ -16,7 +16,7 @@ struct IDEX
 	int Rd;
 	int PC;
 	int Imm;
-	REG Reg_Rs1,Reg_Rs2;
+	REG Reg_Rs1,Reg_Rs2;	
 
 	char Ctrl_EX_ALUSrcA;
 	char Ctrl_EX_ALUSrcB;
