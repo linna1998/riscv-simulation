@@ -18,6 +18,10 @@ extern FILE *file;
 // 单步调试flag，如果TF == 1，进入单步调试模式，每步输出寄存器堆
 static bool TF = false;
 
+// 多周期处理器的state状态
+// 参见大课第六讲ppt P59
+int state = 2;
+
 // 系统调用退出指示
 #define RET_INST 0x00008067
 
@@ -217,29 +221,105 @@ int main(int argc, char* argv[])
 
 void simulate()
 {
+	state = 2;
 	while ((PC * 4) != endPC)
-	{
+	{		
 		if (TF)
 		{
 			printf("[TF] Instruction:  %08x\n", memory[PC]);
 			printf("PC              :  %08X\n", PC * 4);
 		}
+		
+		/*
 		// 运行
-		IF();
+		switch (state)
+		{
+		// If state = 0, then come to this state 
+		case 0:
+		{
+			ID();
+			ID_EX = ID_EX_old;		
+			state = 1;
+		}
+		case 1:
+		{
+			EX();
+			EX_MEM = EX_MEM_old;
+			EX_WB = EX_WB_old;
+			// Set state in EX() function
+		}
+		// EX in BEQ & Equal
+		case 2:
+		{
+			IF();
+			state = 0;
+		}
+		case 3:
+		{
+			IF();
+			state = 0;
+		}
+		case 4:
+		{
+			WB();
+			state = 5;
+		}
+		case 5:
+		{
+			IF();
+			state = 0;
+		}
+		case 6:
+		{
+			WB();
+			state = 5;
+		}
+		case 7:
+		{
+			IF();
+			state = 0;
+		}
+		case 8:
+		{
+			MEM();
+			MEM_WB = MEM_WB_old;
+			state = 9;
+		}
+		case 9:
+		{
+			WB();
+			state = 10;
+		}
+		case 10:
+		{
+			IF();
+			state = 0;
+		}
+		case 11:
+		{
+			MEM();
+			MEM_WB = MEM_WB_old;
+			state = 12;
+		}
+		case 12:
+		{
+			IF();
+			state = 0;
+		}		
+		}
+		*/
 
+		IF();
 		// 更新中间寄存器
 		IF_ID = IF_ID_old;
 
 		ID();
-
 		ID_EX = ID_EX_old;
 
 		EX();
-
 		EX_MEM = EX_MEM_old;
 
 		MEM();
-
 		MEM_WB = MEM_WB_old;
 
 		WB();
@@ -277,6 +357,7 @@ void ID()
 {
 	//Read IF_ID
 	unsigned int inst = IF_ID.inst;
+	unsigned int temp_PC = IF_ID_old.PC;
 	//EXTop=0: Zero extend
 	//EXTop=1: sign extend
 	int EXTop = 0;
@@ -343,7 +424,6 @@ void ID()
 	rs1 = getbit(inst, 15, 19);
 	rs2 = getbit(inst, 20, 24);
 	rd = getbit(inst, 7, 11);
-
 
 	//immediate numbers are in different kinds and be put in different areas
 	imm_I = getbit(inst, 20, 31);//I
@@ -766,7 +846,7 @@ void ID()
 
 	//write ID_EX_old
 	ID_EX_old.Rd = rd;	
-	ID_EX_old.PC = PC;
+	ID_EX_old.PC = temp_PC;
 	ID_EX_old.Imm = ext_signed(EXTsrc, EXTop);
 	ID_EX_old.Reg_Rs1 = reg[rs1];  // 译码阶段取操作数
 	ID_EX_old.Reg_Rs2 = reg[rs2];
@@ -789,6 +869,7 @@ void EX()
 	//read ID_EX	
 	int Rd = ID_EX.Rd;
 	int temp_PC = ID_EX.PC;
+	int old_PC = ID_EX.PC;
 	int Imm = ID_EX.Imm;
 	REG Reg_Rs1 = ID_EX.Reg_Rs1;
 	REG Reg_Rs2 = ID_EX.Reg_Rs2;
@@ -829,7 +910,7 @@ void EX()
 	}
 
 	//alu calculate
-	int Zero = 1;//the branch flag
+	char Zero = 1;//the branch flag
      //if (Branch== (2||3||4||5) ) && (Zero==0) then jump to new PC
 	REG ALUout;
 	switch (ALUOp)
@@ -939,43 +1020,50 @@ void EX()
 	//if (Branch==6) printf("JALR ALUout : %llx\n", ALUout);
 	//if (Branch==6) printf("JALR temp_PC : %llx\n", temp_PC * 4);
 
+	//complete Branch instruction PC change
+	if ((Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5) && Zero == 0)
+		PC = temp_PC;//跳转，设置新地址, SB type
+	else if (Branch == 1 || Branch == 6) PC = temp_PC;// JAL&JALR
+
 	//write EX_MEM_old
-	EX_MEM_old.PC = temp_PC;
+	EX_MEM_old.PC = old_PC-1;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
 	EX_MEM_old.Rd = Rd;
 	EX_MEM_old.ALU_out = ALUout;
-	EX_MEM_old.Zero = Zero;
+	
 	EX_MEM_old.Reg_Rs2 = Reg_Rs2;
 
 	EX_MEM_old.Ctrl_M_Branch = Branch;
+	EX_MEM_old.Ctrl_M_Zero = Zero;
 	EX_MEM_old.Ctrl_M_MemWrite = MemWrite;
 	EX_MEM_old.Ctrl_M_MemRead = MemRead;
 
 	EX_MEM_old.Ctrl_WB_RegWrite = RegWrite;
 	EX_MEM_old.Ctrl_WB_MemtoReg = MemtoReg;
+
+	//write EX_WB_old
+	EX_WB_old.PC = old_PC -1;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
+	EX_WB_old.ALU_out = ALUout;
+	EX_WB_old.Rd = Rd;
+	EX_WB_old.Ctrl_WB_RegWrite = RegWrite;
+	EX_WB_old.Ctrl_WB_MemtoReg = MemtoReg;
 }
 
 //访问存储器
 void MEM()
 {
 	//read EX_MEM
-	int temp_PC = EX_MEM.PC;
-	int old_PC = PC - 1;//保留跳转指令前的PC值，PC/4，用于之后进行变形后塞到寄存器里
+	int old_PC = EX_MEM.PC;//保留跳转指令前的PC值，PC/4，用于之后进行变形后塞到寄存器里
 	int Rd = EX_MEM.Rd;//rd值
-	REG ALUout = EX_MEM.ALU_out;
-	int Zero = EX_MEM.Zero;
+	REG ALUout = EX_MEM.ALU_out;	
 	REG Reg_Rs2 = EX_MEM.Reg_Rs2;
 
 	char Branch = EX_MEM.Ctrl_M_Branch;
+	char Zero = EX_MEM.Ctrl_M_Zero;
 	char MemWrite = EX_MEM.Ctrl_M_MemWrite;
 	char MemRead = EX_MEM.Ctrl_M_MemRead;
 
 	char RegWrite = EX_MEM.Ctrl_WB_RegWrite;
-	char MemtoReg = EX_MEM.Ctrl_WB_MemtoReg;
-
-	//complete Branch instruction PC change
-	if ((Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5) && Zero == 0)
-		PC = temp_PC;//跳转，设置新地址, SB type
-	else if (Branch == 1 || Branch == 6) PC = temp_PC;// JAL&JALR
+	char MemtoReg = EX_MEM.Ctrl_WB_MemtoReg;	
 
 	//read / write memory
 	unsigned long long int Mem_read;
@@ -1071,7 +1159,7 @@ void WB()
 	//MemtoReg=2: write old_PC*4+4 to R[rd] in JALR&JALto register
 	char MemtoReg = MEM_WB.Ctrl_WB_MemtoReg;
 
-	//在MEM里面把PC就写回去啦~
+	//在EX里面把PC就写回去啦~
 
 	//write reg      
 	//啊Rd这里需要个什么东西把rd传过来…
