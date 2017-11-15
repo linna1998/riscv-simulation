@@ -297,9 +297,12 @@ void ID()
 	//ALUop=11: rem, R[rd] ← R[rs1] % R[rs2]
 	//ALUop=12: and. &
 	char ALUop;
-	//ALUSrc=0: B from register rs2
-	//ALUSrc=1: B from Extend part 
-	char ALUSrc;
+	//ALUSrcA=0: A from register rs1
+	//ALUSrcA=1: A from PC 
+	char ALUSrcA;
+	//ALUSrcB=0: B from register rs2
+	//ALUSrcB=1: B from Extend part 
+	char ALUSrcB;
 
 	//Branch=0: new_PC=PC+1
 	//Branch=1: (old_PC*4+IMM*2)/4->PC, choose to branch in JAL
@@ -367,7 +370,8 @@ void ID()
 	{
 		//same control parts
 		EXTop = 0;
-		ALUSrc = 0;
+		ALUSrcA = 0;
+		ALUSrcB = 0;
 		Branch = 0;
 		MemRead = 0;
 		MemWrite = 0;
@@ -442,7 +446,8 @@ void ID()
 	{
 		// EXTop no need
 		// EXTsrc no need
-		ALUSrc = 0;
+		ALUSrcA = 0;
+		ALUSrcB = 0;
 		Branch = 0;
 		MemRead = 0;
 		MemWrite = 0;
@@ -464,7 +469,8 @@ void ID()
 		EXTop = 1;//sign extend
 		EXTsrc = imm_I;
 		ALUop = 0;//add
-		ALUSrc = 1;
+		ALUSrcA = 0;
+		ALUSrcB = 1;
 		Branch = 0;
 		MemWrite = 0;
 		RegWrite = 1;
@@ -495,7 +501,8 @@ void ID()
 		//same control parts
 		EXTop = 1;//sign extend
 		EXTsrc = imm_I;//except the shifts, they use shamt
-		ALUSrc = 1;
+		ALUSrcA = 0;
+		ALUSrcB = 1;
 		Branch = 0;
 		MemRead = 0;
 		MemWrite = 0;
@@ -547,7 +554,8 @@ void ID()
 			EXTop = 1;//sign extend
 			EXTsrc = imm_I;
 			ALUop = 0;
-			ALUSrc = 1;
+			ALUSrcA = 0;
+			ALUSrcB = 1;
 			Branch = 0;
 			MemRead = 0;
 			MemWrite = 0;
@@ -560,7 +568,8 @@ void ID()
 			EXTop = 1;//sign extend
 			EXTsrc = shamt;
 			ALUop = 3;
-			ALUSrc = 1;
+			ALUSrcA = 0;
+			ALUSrcB = 1;
 			Branch = 0;
 			MemRead = 0;
 			MemWrite = 0;
@@ -573,7 +582,8 @@ void ID()
 			EXTop = 1;//sign extend
 			EXTsrc = shamt;
 			ALUop = 8;
-			ALUSrc = 1;
+			ALUSrcA = 0;
+			ALUSrcB = 1;
 			Branch = 0;
 			MemRead = 0;
 			MemWrite = 0;
@@ -586,7 +596,8 @@ void ID()
 			EXTop = 1;//sign extend
 			EXTsrc = shamt;
 			ALUop = 9;
-			ALUSrc = 1;
+			ALUSrcA = 0;
+			ALUSrcB = 1;
 			Branch = 0;
 			MemRead = 0;
 			MemWrite = 0;
@@ -610,7 +621,8 @@ void ID()
 			EXTsrc = imm_I;
 			//printf("IMM : %llx\n", imm_I);
 			ALUop = 0;
-			ALUSrc = 1;
+			ALUSrcA = 0;
+			ALUSrcB = 1;
 			Branch = 6;//(ALUresult*2)/4->PC in JALR
 			MemRead = 0;
 			MemWrite = 0;
@@ -636,7 +648,8 @@ void ID()
 		EXTop = 1;//sign extend
 		EXTsrc = imm_S;
 		ALUop = 0;
-		ALUSrc = 1;
+		ALUSrcA = 0;
+		ALUSrcB = 1;
 		Branch = 0;
 		MemRead = 0;
 		RegWrite = 0;
@@ -671,7 +684,8 @@ void ID()
 		//send to PC's Adder and add with old PC
 		ALUop = 2;//sub, R[rs1]-R[rs2] to describe whether they are same		
 				  //maybe send the result to PC selecter
-		ALUSrc = 0;
+		ALUSrcA = 0;
+		ALUSrcB = 0;
 		MemRead = 0;
 		MemWrite = 0;
 		RegWrite = 0;
@@ -706,9 +720,9 @@ void ID()
 		//get PC value as rs1 to ALU
 		EXTop = 1;//sign extend
 		EXTsrc = imm_U*(1 << 12);
-		rs1 = -1;//special: rs1=-1 get rs1 from PC, only in AUIPC
 		ALUop = 0;
-		ALUSrc = 1;
+		ALUSrcA = 1;  // get rs1 from PC
+		ALUSrcB = 1;
 		Branch = 0;
 		MemRead = 0;
 		MemWrite = 0;
@@ -723,7 +737,8 @@ void ID()
 		EXTsrc = imm_U*(1 << 12);
 		rs1 = 0;//reg[0]=0
 		ALUop = 0;
-		ALUSrc = 1;
+		ALUSrcA = 0;
+		ALUSrcB = 1;
 		Branch = 0;
 		MemRead = 0;
 		MemWrite = 0;
@@ -740,7 +755,8 @@ void ID()
 		EXTsrc = ext_signed(imm_UJ, 1);
 		rs1 = 0;//reg[0]=0
 		ALUop = 0;
-		ALUSrc = 1;
+		ALUSrcA = 0;
+		ALUSrcB = 1;
 		Branch = 1;//(old_PC*4+EXTsrc)/4->PC
 		MemRead = 0;
 		MemWrite = 0;
@@ -749,14 +765,14 @@ void ID()
 	}
 
 	//write ID_EX_old
-	ID_EX_old.Rd = rd;
-	ID_EX_old.Rs1 = rs1;  // 有一个rs1==-1的特殊用途，所以往后传了
+	ID_EX_old.Rd = rd;	
 	ID_EX_old.PC = PC;
 	ID_EX_old.Imm = ext_signed(EXTsrc, EXTop);
 	ID_EX_old.Reg_Rs1 = reg[rs1];  // 译码阶段取操作数
 	ID_EX_old.Reg_Rs2 = reg[rs2];
 
-	ID_EX_old.Ctrl_EX_ALUSrc = ALUSrc;
+	ID_EX_old.Ctrl_EX_ALUSrcA = ALUSrcA;
+	ID_EX_old.Ctrl_EX_ALUSrcB = ALUSrcB;
 	ID_EX_old.Ctrl_EX_ALUOp = ALUop;
 
 	ID_EX_old.Ctrl_M_Branch = Branch;
@@ -772,13 +788,13 @@ void EX()
 {
 	//read ID_EX	
 	int Rd = ID_EX.Rd;
-	int Rs1 = ID_EX.Rs1;
 	int temp_PC = ID_EX.PC;
 	int Imm = ID_EX.Imm;
 	REG Reg_Rs1 = ID_EX.Reg_Rs1;
 	REG Reg_Rs2 = ID_EX.Reg_Rs2;
 
-	char ALUSrc = ID_EX.Ctrl_EX_ALUSrc;
+	char ALUSrcA = ID_EX.Ctrl_EX_ALUSrcA;
+	char ALUSrcB = ID_EX.Ctrl_EX_ALUSrcB;
 	char ALUOp = ID_EX.Ctrl_EX_ALUOp;
 
 	char Branch = ID_EX.Ctrl_M_Branch;
@@ -798,13 +814,14 @@ void EX()
 	//if (Branch==1) printf("JAL temp_PC : %08llx\n", temp_PC * 4);
 
 	//choose ALU input number
-	REG ALU_A = Reg_Rs1;
+	REG ALU_A = 0;
 	REG ALU_B = 0;
 
-	if (Rs1 == -1) ALU_A = (temp_PC - 1) * 4;//used in AUIPC, ALU_A+ALU_B
-
-	if (ALUSrc == 0) ALU_B = Reg_Rs2;
+	if (ALUSrcA == 0) ALU_A = Reg_Rs1;
+	else ALU_A = (temp_PC - 1) * 4;//used in AUIPC, ALU_A+ALU_B
+	if (ALUSrcB == 0) ALU_B = Reg_Rs2;
 	else ALU_B = Imm;
+
 	if (Branch == 6)
 	{
 		//printf("Imm in EX: %08llx\n", Imm);
@@ -813,7 +830,7 @@ void EX()
 
 	//alu calculate
 	int Zero = 1;//the branch flag
-				 //if (Branch== (2||3||4||5) ) && (Zero==0) then jump to new PC
+     //if (Branch== (2||3||4||5) ) && (Zero==0) then jump to new PC
 	REG ALUout;
 	switch (ALUOp)
 	{
@@ -927,7 +944,7 @@ void EX()
 	EX_MEM_old.Rd = Rd;
 	EX_MEM_old.ALU_out = ALUout;
 	EX_MEM_old.Zero = Zero;
-	EX_MEM_old.Reg_Rs2 = Reg_Rs2;//
+	EX_MEM_old.Reg_Rs2 = Reg_Rs2;
 
 	EX_MEM_old.Ctrl_M_Branch = Branch;
 	EX_MEM_old.Ctrl_M_MemWrite = MemWrite;
@@ -960,7 +977,7 @@ void MEM()
 		PC = temp_PC;//跳转，设置新地址, SB type
 	else if (Branch == 1 || Branch == 6) PC = temp_PC;// JAL&JALR
 
-													  //read / write memory
+	//read / write memory
 	unsigned long long int Mem_read;
 	//MemRead=0: don't read from memory
 	//MemRead=1: read from memory, byte
