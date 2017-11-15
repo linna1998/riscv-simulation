@@ -25,7 +25,6 @@ typedef unsigned int Elf64_Word;
 typedef unsigned int Elf64_Sword;
 typedef unsigned short Elf64_Half;
 
-
 #define	EI_CLASS 4
 #define	EI_DATA 5
 #define	EI_VERSION 6
@@ -33,7 +32,6 @@ typedef unsigned short Elf64_Half;
 #define	EI_ABIVERSION 8
 #define	EI_PAD 9
 #define	EI_NIDENT 16
-
 
 /** EI_CLASS */
 #define ELFCLASSNONE 0  // Invalid class

@@ -282,14 +282,7 @@ void ID()
 	int EXTop = 0;
 	//the number needed to be extended
 	unsigned int EXTsrc = 0;
-	////RegDst=0: send ALUout into register rd
-	////RegDst=1: send ALUout into PC
-	////RegDst=2: don't write to register
-	//The old version from RegDst
-	//RegDst=0: write into rd
-	//RegDst=1: write into PC
-	//RegDst=2: don't write to register
-	char RegDst;
+
 	//ALUop=0: add
 	//ALUop=1: mul, get the low 64 bits of multiple result
 	//ALUop=2: sub	
@@ -331,8 +324,6 @@ void ID()
 
 	//RegWrite=0: don't write to register
 	//RegWrite=1: write to register
-	////RegWrite=1: write ALUout to register rd
-	////RegWrite=2: write PC to register rd
 	char RegWrite;
 	//MemtoReg=0: send ALU's result to register
 	//MemtoReg=1: send Memory's result to register
@@ -376,7 +367,6 @@ void ID()
 	{
 		//same control parts
 		EXTop = 0;
-		RegDst = 0;
 		ALUSrc = 0;
 		Branch = 0;
 		MemRead = 0;
@@ -452,7 +442,6 @@ void ID()
 	{
 		// EXTop no need
 		// EXTsrc no need
-		RegDst = 0;
 		ALUSrc = 0;
 		Branch = 0;
 		MemRead = 0;
@@ -474,7 +463,6 @@ void ID()
 		//same control parts
 		EXTop = 1;//sign extend
 		EXTsrc = imm_I;
-		RegDst = 0;
 		ALUop = 0;//add
 		ALUSrc = 1;
 		Branch = 0;
@@ -507,7 +495,6 @@ void ID()
 		//same control parts
 		EXTop = 1;//sign extend
 		EXTsrc = imm_I;//except the shifts, they use shamt
-		RegDst = 0;
 		ALUSrc = 1;
 		Branch = 0;
 		MemRead = 0;
@@ -559,7 +546,6 @@ void ID()
 		{
 			EXTop = 1;//sign extend
 			EXTsrc = imm_I;
-			RegDst = 0;
 			ALUop = 0;
 			ALUSrc = 1;
 			Branch = 0;
@@ -573,7 +559,6 @@ void ID()
 		{
 			EXTop = 1;//sign extend
 			EXTsrc = shamt;
-			RegDst = 0;
 			ALUop = 3;
 			ALUSrc = 1;
 			Branch = 0;
@@ -583,11 +568,10 @@ void ID()
 			MemtoReg = 0;
 		}
 		//SRLIW
-		else if (fuc3 == F3_SRLIW && fuc7==F7_SRLIW)
+		else if (fuc3 == F3_SRLIW && fuc7 == F7_SRLIW)
 		{
 			EXTop = 1;//sign extend
 			EXTsrc = shamt;
-			RegDst = 0;
 			ALUop = 8;
 			ALUSrc = 1;
 			Branch = 0;
@@ -601,7 +585,6 @@ void ID()
 		{
 			EXTop = 1;//sign extend
 			EXTsrc = shamt;
-			RegDst = 0;
 			ALUop = 9;
 			ALUSrc = 1;
 			Branch = 0;
@@ -626,7 +609,6 @@ void ID()
 			EXTop = 1;//sign extend
 			EXTsrc = imm_I;
 			//printf("IMM : %llx\n", imm_I);
-			RegDst = 0;
 			ALUop = 0;
 			ALUSrc = 1;
 			Branch = 6;//(ALUresult*2)/4->PC in JALR
@@ -653,7 +635,6 @@ void ID()
 		//same control parts
 		EXTop = 1;//sign extend
 		EXTsrc = imm_S;
-		RegDst = 2;//don't write to register
 		ALUop = 0;
 		ALUSrc = 1;
 		Branch = 0;
@@ -688,7 +669,6 @@ void ID()
 		EXTop = 1;//signed extern, but not used in this ALU			
 		EXTsrc = imm_SB;
 		//send to PC's Adder and add with old PC
-		RegDst = 2;//don't write
 		ALUop = 2;//sub, R[rs1]-R[rs2] to describe whether they are same		
 				  //maybe send the result to PC selecter
 		ALUSrc = 0;
@@ -727,7 +707,6 @@ void ID()
 		EXTop = 1;//sign extend
 		EXTsrc = imm_U*(1 << 12);
 		rs1 = -1;//special: rs1=-1 get rs1 from PC, only in AUIPC
-		RegDst = 0;//write to R[rd]
 		ALUop = 0;
 		ALUSrc = 1;
 		Branch = 0;
@@ -743,7 +722,6 @@ void ID()
 		EXTop = 1;//sign extend
 		EXTsrc = imm_U*(1 << 12);
 		rs1 = 0;//reg[0]=0
-		RegDst = 0;//write to R[rd]
 		ALUop = 0;
 		ALUSrc = 1;
 		Branch = 0;
@@ -761,7 +739,6 @@ void ID()
 		EXTop = 1;//sign extend
 		EXTsrc = ext_signed(imm_UJ, 1);
 		rs1 = 0;//reg[0]=0
-		RegDst = 0;//write to R[rd]
 		ALUop = 0;
 		ALUSrc = 1;
 		Branch = 1;//(old_PC*4+EXTsrc)/4->PC
@@ -771,20 +748,16 @@ void ID()
 		MemtoReg = 2;
 	}
 
-
 	//write ID_EX_old
 	ID_EX_old.Rd = rd;
-	ID_EX_old.Rs1 = rs1;
-	ID_EX_old.Rs2 = rs2;
+	ID_EX_old.Rs1 = rs1;  // 有一个rs1==-1的特殊用途，所以往后传了
 	ID_EX_old.PC = PC;
 	ID_EX_old.Imm = ext_signed(EXTsrc, EXTop);
-	ID_EX_old.Reg_Rd = reg[rd];
-	ID_EX_old.Reg_Rs1 = reg[rs1];
+	ID_EX_old.Reg_Rs1 = reg[rs1];  // 译码阶段取操作数
 	ID_EX_old.Reg_Rs2 = reg[rs2];
 
 	ID_EX_old.Ctrl_EX_ALUSrc = ALUSrc;
 	ID_EX_old.Ctrl_EX_ALUOp = ALUop;
-	ID_EX_old.Ctrl_EX_RegDst = RegDst;
 
 	ID_EX_old.Ctrl_M_Branch = Branch;
 	ID_EX_old.Ctrl_M_MemWrite = MemWrite;
@@ -800,16 +773,13 @@ void EX()
 	//read ID_EX	
 	int Rd = ID_EX.Rd;
 	int Rs1 = ID_EX.Rs1;
-	int Rs2 = ID_EX.Rs2;
 	int temp_PC = ID_EX.PC;
 	int Imm = ID_EX.Imm;
-	REG Reg_Rd = ID_EX.Reg_Rd;
 	REG Reg_Rs1 = ID_EX.Reg_Rs1;
 	REG Reg_Rs2 = ID_EX.Reg_Rs2;
 
 	char ALUSrc = ID_EX.Ctrl_EX_ALUSrc;
 	char ALUOp = ID_EX.Ctrl_EX_ALUOp;
-	char RegDst = ID_EX.Ctrl_EX_RegDst;
 
 	char Branch = ID_EX.Ctrl_M_Branch;
 	char MemWrite = ID_EX.Ctrl_M_MemWrite;
@@ -819,7 +789,8 @@ void EX()
 	char MemtoReg = ID_EX.Ctrl_WB_MemtoReg;
 
 	//Branch PC calulate
-	if (Branch == 1 || Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5) temp_PC = ((temp_PC - 1) * 4 + Imm) / 4;//SB & JAL	
+	if (Branch == 1 || Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5)
+		temp_PC = ((temp_PC - 1) * 4 + Imm) / 4;//SB & JAL	
 	else temp_PC = temp_PC;
 	//Branch=6 JALR 在后面用到ALU结果更新
 
@@ -945,34 +916,15 @@ void EX()
 	default: ALUout = 0;
 	}
 
-	//现在我觉得这块不用了，直接把rd送到后面就行了，反正要写都是写在rd里面
-	////choose reg dst address
-	////RegDst=0: write into rd
-	////RegDst=1: write into PC
-	////RegDst=2: don't write to register
-	////???前面Reg_Dst还是char的…
-	////越写越乱了QAQ
-	//int Reg_Dst;
-	//if (RegDst == 0)
-	//{
-	//}
-	//else
-	//{
-	//}
-
-
 	//(ALU result &(~1)) / 4->PC
 	if (Branch == 6) temp_PC = (ALUout &(~1)) / 4;//JALR fresh PC number
-												  //JALR
-												  //if (Branch==6) printf("JALR ALUout : %llx\n", ALUout);
-												  //if (Branch==6) printf("JALR temp_PC : %llx\n", temp_PC * 4);
+	//JALR
+	//if (Branch==6) printf("JALR ALUout : %llx\n", ALUout);
+	//if (Branch==6) printf("JALR temp_PC : %llx\n", temp_PC * 4);
 
-
-
-												  //write EX_MEM_old
+	//write EX_MEM_old
 	EX_MEM_old.PC = temp_PC;
-	//EX_MEM_old.Reg_Dst = Reg_Dst;//???
-	EX_MEM_old.Reg_Dst = rd;
+	EX_MEM_old.Rd = Rd;
 	EX_MEM_old.ALU_out = ALUout;
 	EX_MEM_old.Zero = Zero;
 	EX_MEM_old.Reg_Rs2 = Reg_Rs2;//
@@ -983,7 +935,6 @@ void EX()
 
 	EX_MEM_old.Ctrl_WB_RegWrite = RegWrite;
 	EX_MEM_old.Ctrl_WB_MemtoReg = MemtoReg;
-
 }
 
 //访问存储器
@@ -992,7 +943,7 @@ void MEM()
 	//read EX_MEM
 	int temp_PC = EX_MEM.PC;
 	int old_PC = PC - 1;//保留跳转指令前的PC值，PC/4，用于之后进行变形后塞到寄存器里
-	int Reg_Dst = EX_MEM.Reg_Dst;//rd值
+	int Rd = EX_MEM.Rd;//rd值
 	REG ALUout = EX_MEM.ALU_out;
 	int Zero = EX_MEM.Zero;
 	REG Reg_Rs2 = EX_MEM.Reg_Rs2;
@@ -1005,7 +956,8 @@ void MEM()
 	char MemtoReg = EX_MEM.Ctrl_WB_MemtoReg;
 
 	//complete Branch instruction PC change
-	if ((Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5) && Zero == 0) PC = temp_PC;//跳转，设置新地址, SB type
+	if ((Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5) && Zero == 0)
+		PC = temp_PC;//跳转，设置新地址, SB type
 	else if (Branch == 1 || Branch == 6) PC = temp_PC;// JAL&JALR
 
 													  //read / write memory
@@ -1078,7 +1030,7 @@ void MEM()
 	MEM_WB_old.PC = old_PC;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
 	MEM_WB_old.Mem_read = Mem_read;
 	MEM_WB_old.ALU_out = ALUout;
-	MEM_WB_old.Reg_Dst = Reg_Dst;
+	MEM_WB_old.Rd = Rd;
 
 	MEM_WB_old.Ctrl_WB_RegWrite = RegWrite;
 	MEM_WB_old.Ctrl_WB_MemtoReg = MemtoReg;
@@ -1091,10 +1043,10 @@ void WB()
 	int temp_PC = MEM_WB.PC;//用于送到rd里面去，是本指令的old_PC值，需要变换之后再放到寄存器里面
 	unsigned long long int Mem_read = MEM_WB.Mem_read;
 	REG ALUout = MEM_WB.ALU_out;
-	int Reg_Dst = MEM_WB.Reg_Dst;//rd的值
+	int Rd = MEM_WB.Rd;//rd的值
 
-								 //RegWrite=0: don't write to register
-								 //RegWrite=1: write to register	 
+	//RegWrite=0: don't write to register
+	 //RegWrite=1: write to register	 
 	char  RegWrite = MEM_WB.Ctrl_WB_RegWrite;
 
 	//MemtoReg=0: send ALU's result to register
@@ -1104,15 +1056,15 @@ void WB()
 
 	//在MEM里面把PC就写回去啦~
 
-	//write reg
-	//啊Reg_Dst这里需要个什么东西把rd传过来…
+	//write reg      
+	//啊Rd这里需要个什么东西把rd传过来…
 	//前面好像都错了QAQ要么就再加个变量把rd也传下来
 	//好吧我试试把rd一直传下来
 	if (RegWrite == 1)
 	{
-		if (MemtoReg == 0) reg[Reg_Dst] = ALUout;
-		else if (MemtoReg == 1) reg[Reg_Dst] = Mem_read;
-		else if (MemtoReg == 2) reg[Reg_Dst] = temp_PC * 4 + 4;//送到reg里面，所以最后不用/4
-		else if (MemtoReg == 3) reg[Reg_Dst] = ext_signed(ALUout, 1);
+		if (MemtoReg == 0) reg[Rd] = ALUout;
+		else if (MemtoReg == 1) reg[Rd] = Mem_read;
+		else if (MemtoReg == 2) reg[Rd] = temp_PC * 4 + 4;//送到reg里面，所以最后不用/4
+		else if (MemtoReg == 3) reg[Rd] = ext_signed(ALUout, 1);
 	}
 }
