@@ -38,7 +38,10 @@
 #define OP_ADDW 0x3B
 #define F3_ADDW 0
 #define F7_ADDW 0
+#define F7_SUBW 0x20
 #define F7_MULW 1
+#define F3_DIVW 4
+#define F7_DIVW 1
 
 //I type 1
 #define OP_LB 3
@@ -102,11 +105,11 @@
 #define STATE_EX_R 2
 #define STATE_EX_MUL 3
 #define STATE_EX_DIV 4
-#define STATE_EX_LB 5
-#define STATE_EX_S 6
-#define STATE_EX_SB 7
-#define STATE_MEM_LB 8
-#define STATE_MEM_S 9
+#define STATE_EX_S 5
+#define STATE_EX_SB 6
+#define STATE_EX_LB 7
+#define STATE_MEM_S 8
+#define STATE_MEM_LB 9
 #define STATE_WB_R 10
 #define STATE_WB_LB 11
 
@@ -117,7 +120,39 @@ unsigned int memory[MAX] = { 0 };
 //¼Ä´æÆ÷¶Ñ
 REG reg[32] = { 0 };
 //PC
-int PC = 0;
+int global_PC = 0;
+
+int state = STATE_IF;
+int num_cycle = 0;
+int num_inst = 0;
+
+int cycle_count[12] =
+{ 1,	// STATE_IF
+1,	// STATE_ID
+1,	// STATE_EX_R
+2,	// STATE_EX_MUL
+40,	// STATE_EX_DIV
+1,	// STATE_EX_S
+1,	// STATE_EX_SB
+1,	// STATE_EX_LB
+1,	// STATE_MEM_S
+1,	// STATE_MEM_LB
+1,	// STATE_WB_R
+1 };	// STATE_WB_LB
+
+int state_change[12] =
+{ STATE_ID,	// STATE_IF
+-1,		// STATE_ID
+STATE_WB_R,	// STATE_EX_R
+STATE_WB_R,	// STATE_EX_MUL
+STATE_WB_R,	// STATE_EX_DIV
+STATE_MEM_S,	// STATE_EX_S
+STATE_IF,	// STATE_EX_SB
+STATE_MEM_LB,	// STATE_EX_LB
+STATE_IF,	// STATE_MEM_S
+STATE_WB_LB,	// STATE_MEM_LB
+STATE_IF,	// STATE_WB_R
+STATE_IF };	// STATE_WB_LB
 
 
 //¸÷¸öÖ¸Áî½âÎö¶Î

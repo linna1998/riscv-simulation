@@ -8,6 +8,8 @@ extern unsigned long long cadr;
 extern unsigned long long csize;
 extern unsigned long long dadr;
 extern unsigned long long dsize;
+extern unsigned long long sdadr;
+extern unsigned long long sdsize;
 extern unsigned long long radr;
 extern unsigned long long rsize;
 extern unsigned long long gp;
@@ -17,10 +19,6 @@ extern FILE *file;
 
 // 单步调试flag，如果TF == 1，进入单步调试模式，每步输出寄存器堆
 static bool TF = false;
-
-// 多周期处理器的state状态
-// 参见大课第六讲ppt P59
-int state = 2;
 
 // 系统调用退出指示
 #define RET_INST 0x00008067
@@ -116,7 +114,7 @@ void print_text()
 // 加载代码段
 void load_text()
 {
-	if (fseek(file, cadr - 0x10000 + 0x1000, 0))
+	if (fseek(file, cadr - 0x10000, 0))
 	{
 		perror("fseek");
 	}
@@ -128,11 +126,23 @@ void load_text()
 
 void load_data()
 {
-	if (fseek(file, dadr - 0x10000 + 0x1000, 0))
+	if (fseek(file, dadr - 0x10000, 0))
 	{
 		perror("fseek");
 	}
 	if (!fread(&memory[dadr >> 2], 1, dsize, file))
+	{
+		perror("fread");
+	}  // 注意这里dadr换算到memory数组要除以4
+}
+
+void load_sdata()
+{
+	if (fseek(file, sdadr - 0x10000, 0))
+	{
+		perror("fseek");
+	}
+	if (!fread(&memory[sdadr >> 2], 1, sdsize, file))
 	{
 		perror("fread");
 	}  // 注意这里dadr换算到memory数组要除以4
@@ -181,37 +191,32 @@ int main(int argc, char* argv[])
 		return false;
 	}
 	read_elf();
-	printf("PC : %x\n", PC);
-	printf("cadr : %x\n", cadr);
-	printf("dadr : %x\n", dadr);
 
 	// 加载内存
 	load_text();
 	load_data();
+	load_sdata();
 	fclose(file);
 
 	// 设置入口地址
-	PC = entry >> 2;
+	global_PC = entry >> 2;
 
 	// 设置全局数据段地址寄存器
 	reg[3] = gp;
 
 	reg[2] = MAX / 2;  // 栈基址 （sp寄存器）
 
-
-	printf("PC : %x\n", PC * 4);
-	printf("endPC : %x\n", endPC);
-	printf("cadr : %x\n", cadr);
-	printf("dadr : %x\n", dadr);
-	getchar();
-
 	cout << "[!] Simulation starts!" << endl;
 	printf("===============================================================================\n");
 
-	simulate();
+	SingleCycleProcessor();
+	MultiCycleProcessor();
 
 	printf("===============================================================================\n");
 	printf("[!] Simulation is over!\n");
+	printf(" Instruction Number : %d\n", num_inst);
+	printf(" Cycle Number       : %d\n", num_cycle);
+	printf(" CPI                : %f\n", num_cycle / (float)num_inst);
 	printf("Please press Enter to continue...\n");
 
 	getchar();
@@ -219,17 +224,64 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-void simulate()
+void SingleCycleProcessor()
 {
-	state = 2;
-	while ((PC * 4) != endPC)
+	while ((global_PC * 4) != endPC)
 	{
 		if (TF)
 		{
-			printf("[TF] Instruction:  %08x\n", memory[PC]);
-			printf("PC              :  %08X\n", PC * 4);
+			printf("[TF] Instruction:  %08x\n", memory[global_PC]);
+			printf("PC              :  %08X\n", global_PC * 4);		
 		}
+		// Addd instruction number.
+		num_inst++;
+	
+		IF();
+		// 更新中间寄存器
+		IF_ID = IF_ID_old;
 
+		ID();
+		ID_EX = ID_EX_old;
+
+		EX();
+		EX_MEM = EX_MEM_old;
+
+		MEM();
+		MEM_WB = MEM_WB_old;
+
+		WB();
+
+		reg[0] = 0;  // 一直为零
+
+		if (TF)
+		{
+			print_regs();
+			print_stack();
+			print_result();
+			getchar();
+		}
+	}
+
+	printf("===============================================================================\n");
+	printf("[!] Return from main function.\n");
+	print_regs();
+	print_stack();
+	print_result();
+}
+
+void MultiCycleProcessor()
+{
+	state = STATE_IF;
+	int temp_state = state;
+	while ((global_PC * 4) != endPC)
+	{
+		if (TF)
+		{
+			printf("[TF] Instruction:  %08x\n", memory[global_PC]);
+			printf("PC              :  %08X\n", global_PC * 4);
+			cout << "state           :" << state << endl;
+		}
+		temp_state = state;
 		// 运行
 		switch (state)
 		{
@@ -237,84 +289,93 @@ void simulate()
 		case (STATE_IF):
 		{
 			IF();
-			IF_ID = IF_ID_old;
-			state = STATE_ID;
+			IF_ID = IF_ID_old;			
 			break;
 		}
 		case (STATE_ID):
 		{
 			ID();
-			ID_EX = ID_EX_old;
-			//set state in ID();
+			ID_EX = ID_EX_old;			
 			break;
 		}
 		case (STATE_EX_R):
 		{
 			EX();
-			EX_WB = EX_WB_old;
-			state = STATE_WB_R;
+			EX_WB = EX_WB_old;			
 			break;
 		}
 		case (STATE_EX_MUL):
 		{
 			EX();
-			EX_WB = EX_WB_old;
-			state = STATE_WB_R;
+			EX_WB = EX_WB_old;			
 			break;
 		}
 		case (STATE_EX_DIV):
 		{
 			EX();
-			EX_WB = EX_WB_old;
-			state = STATE_WB_R;
+			EX_WB = EX_WB_old;			
 			break;
 		}
 		case (STATE_EX_LB):
 		{
 			EX();
-			EX_MEM = EX_MEM_old;
-			state = STATE_MEM_LB;
+			EX_MEM = EX_MEM_old;			
 			break;
 		}
 		case (STATE_EX_S):
 		{
 			EX();
-			EX_MEM = EX_MEM_old;
-			state = STATE_MEM_S;
+			EX_MEM = EX_MEM_old;		
 			break;
 		}
 		case (STATE_EX_SB):
 		{
 			EX();			
-			state = STATE_IF;
 			break;
 		}
 		case (STATE_MEM_LB):
 		{
 			MEM();
-			MEM_WB = MEM_WB_old;
-			state = STATE_WB_LB;
+			MEM_WB = MEM_WB_old;			
 			break;
 		}
 		case (STATE_MEM_S):
 		{
-			MEM();
-			state = STATE_IF;
+			MEM();			
 			break;
-
 		}
 		case (STATE_WB_R):
 		{
-			WB();
-			state = STATE_IF;
+			WB();			
 			break;
 		}
 		case (STATE_WB_LB):
 		{
-			WB();
-			state = STATE_IF;
+			WB();			
 			break;
 		}
+		}
+
+		// Set new state.
+		// ID set new state in ID() function.
+		if (temp_state != STATE_ID)
+		{
+			state = state_change[temp_state];			
+		}
+		// Addd instruction number.
+		if (temp_state == STATE_IF)
+		{
+			num_inst++;
+		}
+		// Add cycle number;
+		num_cycle += cycle_count[temp_state];
+		if (cycle_count[temp_state] == 40)
+		{
+			printf("DIV REM here. num_cycle += 40\n");
+		}
+		if (cycle_count[temp_state] == 2)
+		{
+			printf("MUL here.     num_cycle += 2\n");
 		}
 
 		//IF();
@@ -338,7 +399,7 @@ void simulate()
 		{
 			print_regs();
 			print_stack();
-			print_result();
+			//print_result();
 			getchar();
 		}
 	}
@@ -355,9 +416,9 @@ void simulate()
 void IF()
 {
 	//write IF_ID_old
-	IF_ID_old.inst = memory[PC];
-	PC = PC + 1;//int memory[], so PC+1 means add 4 bytes
-	IF_ID_old.PC = PC;//存的是新的PC
+	IF_ID_old.inst = memory[global_PC];
+	IF_ID_old.PC = global_PC;//存的是本指令的PC
+	global_PC = global_PC + 1;//int memory[], so PC+1 means add 4 bytes	
 }
 
 //译码
@@ -365,7 +426,7 @@ void ID()
 {
 	//Read IF_ID
 	unsigned int inst = IF_ID.inst;
-	unsigned int temp_PC = IF_ID_old.PC;
+	unsigned int temp_PC = IF_ID_old.PC;  // 本指令PC
 	//EXTop=0: Zero extend
 	//EXTop=1: sign extend
 	int EXTop = 0;
@@ -453,7 +514,7 @@ void ID()
 	int temp_4 = getbit(inst, 31, 31)*(1 << 20);//UJ
 	imm_UJ = temp_1 + temp_2 + temp_3 + temp_4;
 
-	int next_state = 0;
+	int next_state = STATE_EX_R;  // 先设一个默认的缺失值，后面会改的
 
 	//R type
 	if (OP == OP_R)
@@ -477,6 +538,7 @@ void ID()
 		//mul
 		else if (fuc3 == F3_ADD && fuc7 == F7_MUL)
 		{
+			next_state = STATE_EX_MUL;
 			//get the low 64 bits of multiplying
 			ALUop = 1;
 		}
@@ -493,6 +555,7 @@ void ID()
 		//mulh
 		else if (fuc3 == F3_SLL&& fuc7 == F7_MULH)
 		{
+			next_state = STATE_EX_MUL;
 			//get the high 64 bits of multiple result
 			ALUop = 4;
 		}
@@ -537,7 +600,7 @@ void ID()
 	//RW
 	else if (OP == OP_ADDW)
 	{
-		 next_state = STATE_EX_R;
+		next_state = STATE_EX_R;
 		// EXTop no need
 		// EXTsrc no need
 		ALUSrcA = 0;
@@ -554,6 +617,15 @@ void ID()
 		if (fuc3 == F3_ADDW && fuc7 == F7_MULW)
 		{
 			ALUop = 1;
+		}
+		if (fuc3 == F3_ADDW && fuc7 == F7_SUBW)
+		{
+			ALUop = 2;
+		}
+		if (fuc3 == F3_DIVW && fuc7 == F7_DIVW)
+		{
+			next_state = STATE_EX_DIV;
+			ALUop = 7;
 		}
 	}
 	//I type 1
@@ -709,7 +781,7 @@ void ID()
 	//WB: old_PC*4+4 -> R[rd], (ALU result*2)/4->PC
 	else if (OP == OP_JALR)
 	{
-		
+
 		next_state = STATE_EX_R;
 		//???
 		//R[rd] ←old_PC*4+4
@@ -870,12 +942,13 @@ void ID()
 	}
 
 	state = next_state;
+
 	//write ID_EX_old
 	ID_EX_old.Rd = rd;
-	ID_EX_old.PC = temp_PC;
+	ID_EX_old.PC = temp_PC;  // 本指令PC
 	ID_EX_old.Imm = ext_signed(EXTsrc, EXTop);
 	ID_EX_old.Reg_Rs1 = reg[rs1];  // 译码阶段取操作数
-	ID_EX_old.Reg_Rs2 = reg[rs2];	
+	ID_EX_old.Reg_Rs2 = reg[rs2];
 
 	ID_EX_old.Ctrl_EX_ALUSrcA = ALUSrcA;
 	ID_EX_old.Ctrl_EX_ALUSrcB = ALUSrcB;
@@ -894,8 +967,8 @@ void EX()
 {
 	//read ID_EX	
 	int Rd = ID_EX.Rd;
-	int temp_PC = ID_EX.PC;
-	int old_PC = ID_EX.PC;
+	int temp_PC = ID_EX.PC;  // 本指令PC
+	int old_PC = ID_EX.PC;  // 本指令PC
 	int Imm = ID_EX.Imm;
 	REG Reg_Rs1 = ID_EX.Reg_Rs1;
 	REG Reg_Rs2 = ID_EX.Reg_Rs2;
@@ -913,7 +986,7 @@ void EX()
 
 	//Branch PC calulate
 	if (Branch == 1 || Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5)
-		temp_PC = ((temp_PC - 1) * 4 + Imm) / 4;//SB & JAL	
+		temp_PC = (temp_PC  * 4 + Imm) / 4;//SB & JAL	
 	else temp_PC = temp_PC;
 	//Branch=6 JALR 在后面用到ALU结果更新
 
@@ -925,7 +998,7 @@ void EX()
 	REG ALU_B = 0;
 
 	if (ALUSrcA == 0) ALU_A = Reg_Rs1;
-	else ALU_A = (temp_PC - 1) * 4;//used in AUIPC, ALU_A+ALU_B
+	else ALU_A = temp_PC  * 4;//used in AUIPC, ALU_A+ALU_B
 	if (ALUSrcB == 0) ALU_B = Reg_Rs2;
 	else ALU_B = Imm;
 
@@ -1048,11 +1121,11 @@ void EX()
 
 	//complete Branch instruction PC change
 	if ((Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5) && Zero == 0)
-		PC = temp_PC;//跳转，设置新地址, SB type
-	else if (Branch == 1 || Branch == 6) PC = temp_PC;// JAL&JALR
+		global_PC = temp_PC;//跳转，设置新地址, SB type
+	else if (Branch == 1 || Branch == 6) global_PC = temp_PC;// JAL&JALR
 
 	//write EX_MEM_old
-	EX_MEM_old.PC = old_PC - 1;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
+	EX_MEM_old.PC = old_PC ;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
 	EX_MEM_old.Rd = Rd;
 	EX_MEM_old.ALU_out = ALUout;
 
@@ -1067,7 +1140,7 @@ void EX()
 	EX_MEM_old.Ctrl_WB_MemtoReg = MemtoReg;
 
 	//write EX_WB_old
-	EX_WB_old.PC = old_PC - 1;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
+	EX_WB_old.PC = old_PC ;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
 	EX_WB_old.ALU_out = ALUout;
 	EX_WB_old.Rd = Rd;
 	EX_WB_old.Ctrl_WB_RegWrite = RegWrite;
@@ -1078,7 +1151,7 @@ void EX()
 void MEM()
 {
 	//read EX_MEM
-	int old_PC = EX_MEM.PC;//保留跳转指令前的PC值，PC/4，用于之后进行变形后塞到寄存器里
+	int old_PC = EX_MEM.PC;//保留跳转指令前的PC值，本指令PC，PC/4，用于之后进行变形后塞到寄存器里
 	int Rd = EX_MEM.Rd;//rd值
 	REG ALUout = EX_MEM.ALU_out;
 	REG Reg_Rs2 = EX_MEM.Reg_Rs2;
@@ -1208,10 +1281,6 @@ void WB()
 		//MemtoReg=1: send Memory's result to register
 		//MemtoReg=2: write old_PC*4+4 to R[rd] in JALR&JALto register
 		MemtoReg = EX_WB.Ctrl_WB_MemtoReg;
-	}
-	else
-	{
-
 	}
 
 	//在EX里面把PC就写回去啦~

@@ -25,6 +25,7 @@ typedef unsigned int Elf64_Word;
 typedef unsigned int Elf64_Sword;
 typedef unsigned short Elf64_Half;
 
+
 #define	EI_CLASS 4
 #define	EI_DATA 5
 #define	EI_VERSION 6
@@ -32,6 +33,7 @@ typedef unsigned short Elf64_Half;
 #define	EI_ABIVERSION 8
 #define	EI_PAD 9
 #define	EI_NIDENT 16
+
 
 /** EI_CLASS */
 #define ELFCLASSNONE 0  // Invalid class
@@ -188,6 +190,8 @@ unsigned long long csize = 0;  // 在Read_Elf.cpp中设置，在Simulation.cpp中加载代
 							   //全局数据段在内存的地址
 unsigned long long dadr = 0;
 unsigned long long dsize = 0;
+unsigned long long sdadr = 0;
+unsigned long long sdsize = 0;
 
 unsigned long long radr = 0;
 unsigned long long rsize = 0;

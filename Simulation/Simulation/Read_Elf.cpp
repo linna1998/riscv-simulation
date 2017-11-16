@@ -24,6 +24,8 @@ extern unsigned long long cadr;
 extern unsigned long long csize;
 extern unsigned long long dadr;
 extern unsigned long long dsize;
+extern unsigned long long sdadr;
+extern unsigned long long sdsize;
 extern unsigned long long radr;
 extern unsigned long long rsize;
 extern unsigned long long main_adr;
@@ -63,9 +65,8 @@ void read_elf()
 	fclose(elf);
 
 	// entry = main在memory  = main在代码段中的地址
-	printf("main_adr: %lx\n", main_adr);
 	entry = main_adr;
-	endPC = entry + main_size - 4;
+	endPC = entry + main_size - 3;
 }
 
 void read_Elf_header()
@@ -137,12 +138,12 @@ void read_Elf_header()
 	default: fprintf(elf, "Unknown\n");
 	}
 
-	fprintf(elf, " Entry point address:  0x%x\n", elf64_hdr.e_entry);
+	fprintf(elf, " Entry point address:  0x%llx\n", elf64_hdr.e_entry);
 
-	fprintf(elf, " Start of program headers:  %d (bytes into file)\n", elf64_hdr.e_phoff);
+	fprintf(elf, " Start of program headers:  %lld (bytes into file)\n", elf64_hdr.e_phoff);
 	padr = elf64_hdr.e_phoff;
 
-	fprintf(elf, " Start of section headers:  %d (bytes into file)\n", elf64_hdr.e_shoff);
+	fprintf(elf, " Start of section headers:  %lld (bytes into file)\n", elf64_hdr.e_shoff);
 	sadr = elf64_hdr.e_shoff;
 
 	fprintf(elf, " Flags:  0x%x\n", elf64_hdr.e_flags);
@@ -207,6 +208,11 @@ void read_elf_sections()
 			dadr = elf64_shdr.sh_addr;
 			dsize = elf64_shdr.sh_size;
 		}
+		if (!strcmp((const char*)(name + elf64_shdr.sh_name), ".sdata"))
+		{
+			sdadr = elf64_shdr.sh_addr;
+			sdsize = elf64_shdr.sh_size;
+		}
 
 
 		fprintf(elf, " Type: ");
@@ -230,13 +236,13 @@ void read_elf_sections()
 		case SHT_HIUSER: fprintf(elf, "%-9s", "HIUSER"); break;
 		default: fprintf(elf, "%-9s", "Unknown");
 		}
-		fprintf(elf, " Address:  %08x", elf64_shdr.sh_addr);
+		fprintf(elf, " Address:  %08llx", elf64_shdr.sh_addr);
 
-		fprintf(elf, " Offest:  %08x", elf64_shdr.sh_offset);
+		fprintf(elf, " Offest:  %08llx", elf64_shdr.sh_offset);
 
-		fprintf(elf, " Size:  %08x", elf64_shdr.sh_size);
+		fprintf(elf, " Size:  %08llx", elf64_shdr.sh_size);
 
-		fprintf(elf, " Entsize:  %08x", elf64_shdr.sh_entsize);
+		fprintf(elf, " Entsize:  %08llx", elf64_shdr.sh_entsize);
 
 		fprintf(elf, " Flags:   ");
 		switch (elf64_shdr.sh_flags)
@@ -256,7 +262,7 @@ void read_elf_sections()
 
 		fprintf(elf, " Info:  %3d", elf64_shdr.sh_info);
 
-		fprintf(elf, " Align: %3x\n", elf64_shdr.sh_addralign);
+		fprintf(elf, " Align: %3llx\n", elf64_shdr.sh_addralign);
 
 	}
 }
@@ -281,17 +287,17 @@ void read_Phdr()
 		default: fprintf(elf, "%-9s", "Unknown");
 		}
 
-		fprintf(elf, " Offset:   %08x", elf64_phdr.p_offset);
+		fprintf(elf, " Offset:   %08llx", elf64_phdr.p_offset);
 
-		fprintf(elf, " VirtAddr:  %08x", elf64_phdr.p_vaddr);
+		fprintf(elf, " VirtAddr:  %08llx", elf64_phdr.p_vaddr);
 
-		fprintf(elf, " PhysAddr:   %08x", elf64_phdr.p_paddr);
+		fprintf(elf, " PhysAddr:   %08llx", elf64_phdr.p_paddr);
 
-		fprintf(elf, " FileSiz:   %08x", elf64_phdr.p_filesz);
+		fprintf(elf, " FileSiz:   %08llx", elf64_phdr.p_filesz);
 
-		fprintf(elf, " MemSiz:   %08x", elf64_phdr.p_memsz);
+		fprintf(elf, " MemSiz:   %08llx", elf64_phdr.p_memsz);
 
-		fprintf(elf, " Align:   %04x\n", elf64_phdr.p_align);
+		fprintf(elf, " Align:   %08llx\n", elf64_phdr.p_align);
 	}
 }
 
@@ -329,7 +335,7 @@ void read_symtable()
 			rsize = elf64_sym.st_size;
 
 		}
-		if (!strcmp((const char*)(sysname + elf64_sym.st_name), "_gp"))
+		if (!strcmp((const char*)(sysname + elf64_sym.st_name), "__global_pointer$"))
 		{
 			gp = elf64_sym.st_value;
 		}
@@ -359,9 +365,9 @@ void read_symtable()
 		default: fprintf(elf, "%-9s", "Unknown");
 		}
 
-		fprintf(elf, " Size:   %4d", elf64_sym.st_size);
+		fprintf(elf, " Size:   %8lld", elf64_sym.st_size);
 
-		fprintf(elf, " Value:   %08x\n", elf64_sym.st_value);
+		fprintf(elf, " Value:   %16llx\n", elf64_sym.st_value);
 
 	}
 
