@@ -438,17 +438,7 @@ void MultiCycleProcessor()
 		if (temp_state == STATE_IF)
 		{
 			num_inst++;
-		}
-		//// Add cycle number;
-		//num_cycle += cycle_count[temp_state];
-		//if (cycle_count[temp_state] == 40)
-		//{
-		//	printf("DIV REM here. num_cycle += 40\n");
-		//}
-		//if (cycle_count[temp_state] == 2)
-		//{
-		//	printf("MUL here.     num_cycle += 2\n");
-		//}
+		}		
 
 		//有了流水线之后，num_cycle在EX里面加了
 		num_cycle += 1;	

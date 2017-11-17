@@ -104,7 +104,7 @@ using namespace std;
 //UJ type
 #define OP_JAL 0x6f
 
-// Define the states for multiple 
+// Define the states for multiple cycle processor.
 #define STATE_IF 0
 #define STATE_ID 1
 #define STATE_EX_R 2
@@ -120,31 +120,18 @@ using namespace std;
 
 #define MAX 0x10000000
 
-//主存
+// Memory.
 unsigned int memory[MAX] = { 0 };
-//寄存器堆
+// Registers.
 REG reg[32] = { 0 };
-//PC
+// PC.
 int global_PC = 0;
 
 int state = STATE_IF;
 int num_cycle = 0;
 int num_inst = 0;
 
-int cycle_count[12] =
-{ 1,	// STATE_IF
-1,	// STATE_ID
-1,	// STATE_EX_R
-2,	// STATE_EX_MUL
-40,	// STATE_EX_DIV
-1,	// STATE_EX_S
-1,	// STATE_EX_SB
-1,	// STATE_EX_LB
-1,	// STATE_MEM_S
-1,	// STATE_MEM_LB
-1,	// STATE_WB_R
-1 };	// STATE_WB_LB
-
+// In multiple cycle processor. The next state.
 int state_change[12] =
 { STATE_ID,	// STATE_IF
 -1,		// STATE_ID
@@ -159,10 +146,10 @@ STATE_WB_LB,	// STATE_MEM_LB
 STATE_IF,	// STATE_WB_R
 STATE_IF };	// STATE_WB_LB
 
-// 数据冒险的冲突队列
+// In pipeline. The hazard queue.
 vector<int> RdQueue;
 
-//各个指令解析段
+// Analyze the instruction.
 unsigned int OP = 0;
 unsigned int fuc3 = 0, fuc7 = 0;
 int shamt = 0;
@@ -178,50 +165,41 @@ void MultiCycleProcessor();
 void PipelineProcessor();
 
 void IF();
-
 bool ID();
-
 bool EX();
-
 void MEM();
-
 void WB();
 
-//符号扩展
+// Get special bits.
+unsigned int getbit(unsigned inst, int s, int e);
+// Sign extend & Zero extend.
 long long int ext_signed(unsigned int src, int bit);
 
-//获取指定位
-unsigned int getbit(unsigned inst, int s, int e);
-
+// Get from s bit to e bit in inst.
+// Change it into a number.
+// The lowest bit's index is 0.
 unsigned int getbit(unsigned inst, int s, int e)
-//get from s bit to e bit in inst
-//change it into a number
-//the lowest bit is 0
-//function being checked, correct!
 {
 	int mask = 0;
 	for (int i = s; i <= e; i++)
 		mask += (1 << i);
-	inst = inst&mask;
+	inst = inst & mask;
 	inst = (((int)inst) >> s);
 	return inst;
 }
 
+// Extend from 32 bits to 64 bits.
+// bit=0: Zero extend.
+// bit=1: sign extend.
 long long int ext_signed(unsigned int src, int bit)
-//是扩到64位吗？应该是的23333
-//看了下，都是32位扩到64位呀~
 {
-	//bit=0: Zero extend
-	//bit=1: sign extend
 	long long int result = src;
 	long long int mask = (1 << 31);
-	if ((result&mask) && (bit == 0)) result = result & 0xFFFFFFFF;
-
-	if (result&mask)
+	if ((result & mask) && (bit == 0)) result = result & 0xFFFFFFFF;
+	if (result & mask)
 	{
 		for (int i = 63; i >= 32; i--) result |= ((long long int)1 << i);
 	}
-
 	return result;
 }
 #pragma once

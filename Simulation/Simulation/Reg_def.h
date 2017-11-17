@@ -2,28 +2,27 @@
 #pragma once
 typedef unsigned long long REG;
 
-
 struct IFID 
 {
-	//inst means the instruction which is going to execute
+	// inst means the instruction which is going to execute.
 	unsigned int inst;
-	//PC means the index of the instruction
+	// PC means the index of the instruction.
 	int PC;
-	// isNop==1 means is a Nop instruction
+	// isNop = 1 means is a Nop instruction.
 	int isNop;
 
 }IF_ID, IF_ID_old;
 
-// 所有中间寄存器里面的PC都是本条指令的PC值
 struct IDEX 
 {
 	int Rd;
-	int PC;
+	int PC;  // The PC of this instruction.
 	int Imm;
 	REG Reg_Rs1,Reg_Rs2;	
 	int isNop;
-	int havePushedRd;  // 表示本指令ID阶段是否push了Rd, =1是push过了
-
+	// Whether this instruction has pushe Rd into RdQueue or not.
+	// havePushedRd = 1 means have pushed.
+	int havePushedRd;  
 	char Ctrl_EX_ALUSrcA;
 	char Ctrl_EX_ALUSrcB;
 	char Ctrl_EX_ALUOp;	
@@ -39,13 +38,13 @@ struct IDEX
 
 struct EXMEM 
 {
-	int PC;
+	int PC;  // The PC of this instruction.
 	int Jump_PC;
-	int Rd;//int值，应该是rd值
+	int Rd;
 	REG ALU_out;
-	REG Reg_Rs2;//used in writing to memory
+	REG Reg_Rs2;  // In S type, write it into memory.
 	int isNop;
-	int havePushedRd;  // 表示本指令ID阶段是否push了Rd, =1是push过了
+	int havePushedRd;  
 
 	char Ctrl_M_Branch;
 	char Ctrl_M_Zero;
@@ -59,12 +58,12 @@ struct EXMEM
 
 struct EXWB
 {
-	int PC;
+	int PC;  // The PC of this instruction.
 	int Jump_PC;
 	REG ALU_out;
 	int Rd;
 	int isNop;
-	int havePushedRd;  // 表示本指令ID阶段是否push了Rd, =1是push过了
+	int havePushedRd;  
 
 	char Ctrl_WB_RegWrite;
 	char Ctrl_WB_MemtoReg;
@@ -73,12 +72,12 @@ struct EXWB
 
 struct MEMWB 
 {
-	int PC;
-	unsigned long long int Mem_read;//the data from the memory
+	int PC;  // The PC of this instruction.
+	unsigned long long int Mem_read;  // The data from the memory.
 	REG ALU_out;
 	int Rd;
 	int isNop;
-	int havePushedRd;  // 表示本指令ID阶段是否push了Rd, =1是push过了
+	int havePushedRd;  
 
 	char Ctrl_WB_RegWrite;
 	char Ctrl_WB_MemtoReg;
