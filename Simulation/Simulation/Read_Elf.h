@@ -195,7 +195,11 @@ unsigned long long sdsize = 0;
 
 unsigned long long radr = 0;
 unsigned long long rsize = 0;
-
+unsigned long long a_adr = 0;
+unsigned long long b_adr = 0;
+unsigned long long c_adr = 0;
+unsigned long long temp_adr = 0;
+unsigned long long sum_adr = 0;
 //代码段在内存中的虚拟地址
 //因为决定在memory数组中代码地址和elf中相同，所以vadr = cadr
 // unsigned int vadr = 0x1000;

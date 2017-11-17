@@ -12,6 +12,11 @@ extern unsigned long long sdadr;
 extern unsigned long long sdsize;
 extern unsigned long long radr;
 extern unsigned long long rsize;
+extern unsigned long long a_adr;
+extern unsigned long long b_adr;
+extern unsigned long long c_adr;
+extern unsigned long long temp_adr;
+extern unsigned long long sum_adr;
 extern unsigned long long gp;
 extern unsigned int entry;
 extern unsigned int endPC;
@@ -33,6 +38,7 @@ static char SymbolicName[32][3] = {
 // 打印寄存器堆
 void print_regs()
 {
+	/*
 	printf("Register:\n");
 	for (int i = 0; i < 32; i++)
 	{
@@ -42,6 +48,12 @@ void print_regs()
 		printf("[%2d][%2s]0x%8llx\n", i, SymbolicName[i], reg[++i]);
 	}
 	printf("\n");
+	*/
+	printf("\n");
+	for (int i = 0; i < 32; i++)
+	{
+		if (reg[i] != 0) printf("[%2d][%2s]0x%8llx\n", i, SymbolicName[i], reg[i]);
+	}
 }
 
 // 打印栈
@@ -92,6 +104,11 @@ void print_result()
 		printf("[%08x] %08x\n", (int)(radr + i), memory[(radr + i) >> 2]);
 	}
 	printf("\n");
+	printf("a: %d\n", memory[a_adr >> 2]);
+	printf("b: %d\n", memory[b_adr >> 2]);
+	printf("c: %d\n", memory[c_adr >> 2]);
+	printf("temp: %d\n", memory[temp_adr >> 2]);
+	printf("sum: %d\n", memory[sum_adr >> 2]);
 }
 
 // 打印代码段
@@ -209,14 +226,15 @@ int main(int argc, char* argv[])
 	cout << "[!] Simulation starts!" << endl;
 	printf("===============================================================================\n");
 
-	SingleCycleProcessor();
-	MultiCycleProcessor();
+	//SingleCycleProcessor();
+	//MultiCycleProcessor();
+	PipelineProcessor();
 
 	printf("===============================================================================\n");
 	printf("[!] Simulation is over!\n");
-	printf(" Instruction Number : %d\n", num_inst);
+	printf(" Instruction Number : %d\n", num_inst - 3);// 除去开始前三条划水指令
 	printf(" Cycle Number       : %d\n", num_cycle);
-	printf(" CPI                : %f\n", num_cycle / (float)num_inst);
+	printf(" CPI                : %f\n", num_cycle / (float)(num_inst - 3));
 	printf("Please press Enter to continue...\n");
 
 	getchar();
@@ -231,11 +249,11 @@ void SingleCycleProcessor()
 		if (TF)
 		{
 			printf("[TF] Instruction:  %08x\n", memory[global_PC]);
-			printf("PC              :  %08X\n", global_PC * 4);		
+			printf("PC              :  %08X\n", global_PC * 4);
 		}
 		// Addd instruction number.
 		num_inst++;
-	
+
 		IF();
 		// 更新中间寄存器
 		IF_ID = IF_ID_old;
@@ -272,6 +290,8 @@ void SingleCycleProcessor()
 void MultiCycleProcessor()
 {
 	state = STATE_IF;
+	num_cycle = 0;
+	num_inst = 0;
 	int temp_state = state;
 	while ((global_PC * 4) != endPC)
 	{
@@ -289,69 +309,69 @@ void MultiCycleProcessor()
 		case (STATE_IF):
 		{
 			IF();
-			IF_ID = IF_ID_old;			
+			IF_ID = IF_ID_old;
 			break;
 		}
 		case (STATE_ID):
 		{
 			ID();
-			ID_EX = ID_EX_old;			
+			ID_EX = ID_EX_old;
 			break;
 		}
 		case (STATE_EX_R):
 		{
 			EX();
-			EX_WB = EX_WB_old;			
+			EX_WB = EX_WB_old;
 			break;
 		}
 		case (STATE_EX_MUL):
 		{
 			EX();
-			EX_WB = EX_WB_old;			
+			EX_WB = EX_WB_old;
 			break;
 		}
 		case (STATE_EX_DIV):
 		{
 			EX();
-			EX_WB = EX_WB_old;			
+			EX_WB = EX_WB_old;
 			break;
 		}
 		case (STATE_EX_LB):
 		{
 			EX();
-			EX_MEM = EX_MEM_old;			
+			EX_MEM = EX_MEM_old;
 			break;
 		}
 		case (STATE_EX_S):
 		{
 			EX();
-			EX_MEM = EX_MEM_old;		
+			EX_MEM = EX_MEM_old;
 			break;
 		}
 		case (STATE_EX_SB):
 		{
-			EX();			
+			EX();
 			break;
 		}
 		case (STATE_MEM_LB):
 		{
 			MEM();
-			MEM_WB = MEM_WB_old;			
+			MEM_WB = MEM_WB_old;
 			break;
 		}
 		case (STATE_MEM_S):
 		{
-			MEM();			
+			MEM();
 			break;
 		}
 		case (STATE_WB_R):
 		{
-			WB();			
+			WB();
 			break;
 		}
 		case (STATE_WB_LB):
 		{
-			WB();			
+			WB();
 			break;
 		}
 		}
@@ -360,23 +380,26 @@ void MultiCycleProcessor()
 		// ID set new state in ID() function.
 		if (temp_state != STATE_ID)
 		{
-			state = state_change[temp_state];			
+			state = state_change[temp_state];
 		}
 		// Addd instruction number.
 		if (temp_state == STATE_IF)
 		{
 			num_inst++;
 		}
-		// Add cycle number;
-		num_cycle += cycle_count[temp_state];
-		if (cycle_count[temp_state] == 40)
-		{
-			printf("DIV REM here. num_cycle += 40\n");
-		}
-		if (cycle_count[temp_state] == 2)
-		{
-			printf("MUL here.     num_cycle += 2\n");
-		}
+		//// Add cycle number;
+		//num_cycle += cycle_count[temp_state];
+		//if (cycle_count[temp_state] == 40)
+		//{
+		//	printf("DIV REM here. num_cycle += 40\n");
+		//}
+		//if (cycle_count[temp_state] == 2)
+		//{
+		//	printf("MUL here.     num_cycle += 2\n");
+		//}
+
+		//有了流水线之后，num_cycle在EX里面加了
+		num_cycle += 1;
 
 		//IF();
 		//// 更新中间寄存器
@@ -411,6 +434,155 @@ void MultiCycleProcessor()
 	print_result();
 }
 
+void PipelineProcessor()
+{
+	num_cycle = 0;
+	num_inst = 0;
+	bool conflict = false;
+	bool jump = false;
+	int temp_IF_PC = 0;
+	// Initialize.
+	for (int i = 0; i < 3; i++)
+	{
+		RdQueue.push_back(-1);
+	}
+	ID_EX.havePushedRd = 1;
+	EX_MEM.havePushedRd = 1;
+	EX_WB.havePushedRd = 1;
+	MEM_WB.havePushedRd = 1;
+
+	//ID_EX.isNop = 1;
+	//EX_MEM.isNop = 1;
+	//EX_WB.isNop = 1;
+	//MEM_WB.isNop = 1;
+
+	while ((MEM_WB.PC * 4) != endPC)
+	{
+		num_cycle++;
+		if (MEM_WB.isNop == 0) num_inst++;
+		temp_IF_PC = global_PC;
+		if (TF)
+		{
+			printf("[TF] Instruction:  %08x\n", memory[global_PC]);
+			printf("Before doing things.\n");
+			printf("PC_IF             :  %08X\n", global_PC * 4);
+			printf("PC_ID             :  %08X, isNop  %d\n", IF_ID.PC * 4, IF_ID.isNop);
+			printf("PC_EX             :  %08X, isNop  %d, havePushedRd  %d\n",
+				ID_EX.PC * 4, ID_EX.isNop, ID_EX.havePushedRd);
+			printf("PC_MEM         :  %08X, isNop  %d, havePushedRd  %d\n",
+				EX_MEM.PC * 4, EX_MEM.isNop, EX_MEM.havePushedRd);
+			printf("PC_WB           :  %08X, isNop  %d, havePushedRd  %d\n",
+				MEM_WB.PC * 4, MEM_WB.isNop, MEM_WB.havePushedRd);
+			for (int i = 0; i < RdQueue.size(); i++)
+			{
+				printf("RdQueueu[%d]: %d   ", i, RdQueue[i]);
+			}
+		}
+
+		IF();
+		conflict = ID();
+		EX();  // EX中跳转可能再改PC，这个改的优先级高
+		MEM();
+		WB();
+		jump = false;
+		jump = ((EX_MEM_old.Ctrl_M_Branch == 2 || EX_MEM_old.Ctrl_M_Branch == 3 ||
+			EX_MEM_old.Ctrl_M_Branch == 4 || EX_MEM_old.Ctrl_M_Branch == 5)
+			&& EX_MEM_old.Ctrl_M_Zero == 0);
+		jump = jump || (EX_MEM_old.Ctrl_M_Branch == 1 || EX_MEM_old.Ctrl_M_Branch == 6);
+		// !!!非Nop指令才有跳转的权利！
+		jump = jump && (EX_MEM_old.isNop == 0);
+		// PC 跳转逻辑		
+		if (jump)
+		{
+			global_PC = EX_MEM_old.Jump_PC;//跳转，设置新地址
+			IF_ID_old.isNop = 1;
+			ID_EX_old.isNop = 1;
+			if (ID_EX_old.havePushedRd == 1)
+			{
+				RdQueue.pop_back();
+				ID_EX_old.havePushedRd = 0;
+			}
+		}
+		else if (conflict)
+		{
+			// ???
+			global_PC = temp_IF_PC;  // 取指取原址
+
+			//printf("global_PC become %08X\n.", global_PC * 4);
+			IF_ID_old.isNop = 1;
+			ID_EX_old.isNop = 1;
+			if (ID_EX_old.havePushedRd == 1)
+			{
+				RdQueue.pop_back();
+				ID_EX_old.havePushedRd = 0;
+			}
+		}
+		////complete Branch instruction PC change
+		//if ((EX_MEM_old.Ctrl_M_Branch == 2 || EX_MEM_old.Ctrl_M_Branch == 3 || EX_MEM_old.Ctrl_M_Branch == 4 || EX_MEM_old.Ctrl_M_Branch == 5)
+		//	&& EX_MEM_old.Ctrl_M_Zero == 0)
+		//{
+		//	global_PC = EX_MEM_old.Jump_PC;//跳转，设置新地址, SB type
+		//	IF_ID_old.isNop = 1;
+		//	ID_EX_old.Ctrl_M_MemWrite = 0;
+		//	ID_EX_old.Ctrl_WB_RegWrite = 0;
+		//}
+		//else if (EX_MEM_old.Ctrl_M_Branch == 1 || EX_MEM_old.Ctrl_M_Branch == 6)
+		//{
+		//	global_PC = EX_MEM_old.Jump_PC;// JAL&JALR
+		//	IF_ID_old.isNop = 1;
+		//	//ID_EX_old.Rd = -1;
+		//	ID_EX_old.Ctrl_M_MemWrite = 0;
+		//	ID_EX_old.Ctrl_WB_RegWrite = 0;
+		//}
+
+
+		// 更新中间寄存器		
+		if (!(conflict && !jump)) IF_ID = IF_ID_old;
+		//IF_ID = IF_ID_old;
+		ID_EX = ID_EX_old;
+		EX_MEM = EX_MEM_old;
+		MEM_WB = MEM_WB_old;
+
+		reg[0] = 0;  // 一直为零
+
+		if (TF)
+		{
+
+			printf("After doing things.\n");
+			printf("PC_IF             :  %08X\n", global_PC * 4);
+			printf("PC_ID             :  %08X, isNop  %d\n", IF_ID.PC * 4, IF_ID.isNop);
+			printf("PC_EX             :  %08X, isNop  %d, havePushedRd  %d\n",
+				ID_EX.PC * 4, ID_EX.isNop, ID_EX.havePushedRd);
+			printf("PC_MEM         :  %08X, isNop  %d, havePushedRd  %d\n",
+				EX_MEM.PC * 4, EX_MEM.isNop, EX_MEM.havePushedRd);
+			printf("PC_WB           :  %08X, isNop  %d, havePushedRd  %d\n",
+				MEM_WB.PC * 4, MEM_WB.isNop, MEM_WB.havePushedRd);
+			for (int i = 0; i < RdQueue.size(); i++)
+			{
+				printf("RdQueueu[%d]: %d   ", i, RdQueue[i]);
+			}
+			// Program 1&2 debug.
+			//printf("b: M[11760] 0x%8llx.\n", memory[0x11760>>2]);
+			//printf("c: M[11764] 0x%8llx.\n", memory[0x11764 >> 2]);
+
+			// Program 3&4 debug.
+			//printf("-20(s0) 0x%8llx.\n", memory[( 0x8000000-0x20)>> 2]);
+
+			print_regs();
+			//print_stack();
+			print_result();
+			getchar();
+		}
+	}
+
+	printf("===============================================================================\n");
+	printf("[!] Return from main function.\n");
+	print_regs();
+	print_stack();
+	print_result();
+}
+
+
 //32位指令，64位寄存器
 //取指令
 void IF()
@@ -419,14 +591,18 @@ void IF()
 	IF_ID_old.inst = memory[global_PC];
 	IF_ID_old.PC = global_PC;//存的是本指令的PC
 	global_PC = global_PC + 1;//int memory[], so PC+1 means add 4 bytes	
+	IF_ID_old.isNop = 0;
 }
 
 //译码
-void ID()
+//返回是否发生数据冲突
+bool ID()
 {
 	//Read IF_ID
 	unsigned int inst = IF_ID.inst;
-	unsigned int temp_PC = IF_ID_old.PC;  // 本指令PC
+	unsigned int temp_PC = IF_ID.PC;  // 本指令PC
+	int isNop = IF_ID.isNop;
+
 	//EXTop=0: Zero extend
 	//EXTop=1: sign extend
 	int EXTop = 0;
@@ -516,8 +692,23 @@ void ID()
 
 	int next_state = STATE_EX_R;  // 先设一个默认的缺失值，后面会改的
 
+	// NOP instruction
+	if (isNop)
+	{
+		next_state = STATE_IF;
+		rd = -1;
+		EXTop = 0;
+		ALUSrcA = 0;
+		ALUSrcB = 0;
+		ALUop = 0;
+		Branch = 0;
+		MemRead = 0;
+		MemWrite = 0;
+		RegWrite = 0;
+		MemtoReg = 0;
+	}
 	//R type
-	if (OP == OP_R)
+	else if (OP == OP_R)
 	{
 		next_state = STATE_EX_R;  // Except 64-bit multiple and div,rem
 		//same control parts
@@ -661,7 +852,6 @@ void ID()
 			MemRead = 4;
 		}
 	}
-
 	//I type 2
 	else if (OP == OP_ADDI)
 	{
@@ -712,7 +902,6 @@ void ID()
 			ALUop = 12;//and
 		}
 	}
-
 	//I type 3
 	else if (OP == OP_ADDIW)
 	{
@@ -941,6 +1130,7 @@ void ID()
 		MemtoReg = 2;
 	}
 
+	//多周期
 	state = next_state;
 
 	//write ID_EX_old
@@ -949,6 +1139,8 @@ void ID()
 	ID_EX_old.Imm = ext_signed(EXTsrc, EXTop);
 	ID_EX_old.Reg_Rs1 = reg[rs1];  // 译码阶段取操作数
 	ID_EX_old.Reg_Rs2 = reg[rs2];
+	ID_EX_old.isNop = isNop;
+	ID_EX_old.havePushedRd = 0;
 
 	ID_EX_old.Ctrl_EX_ALUSrcA = ALUSrcA;
 	ID_EX_old.Ctrl_EX_ALUSrcB = ALUSrcB;
@@ -960,6 +1152,56 @@ void ID()
 
 	ID_EX_old.Ctrl_WB_RegWrite = RegWrite;
 	ID_EX_old.Ctrl_WB_MemtoReg = MemtoReg;
+
+	// Debug.
+	/*
+	if (OP == OP_S)
+	{
+		printf("OP_SB. Rs1 = %d. Rs2 = %d \n", rs1, rs2);
+	}
+	if (temp_PC * 4 == 0x101ec)
+	{
+		printf("0x101ec. OP = %d. Rs1 = %d. Rs2 = %d \n", OP, rs1, rs2);
+	}
+	*/
+
+	// 针对非空指令
+	if (isNop == 0)
+	{
+		//判断冲突
+		vector<int>::iterator itRs1, itRs2;
+		itRs1 = find(RdQueue.begin(), RdQueue.end(), rs1);
+		itRs2 = find(RdQueue.begin(), RdQueue.end(), rs2);
+		if (ALUSrcA == 0 && itRs1 != RdQueue.end())
+		{
+			//printf("Rs1 hazard. Rs1 = %d.\n", rs1);
+			// 可以把冲突时候的push去了么？
+			//RdQueue.push_back(-1);
+			//ID_EX_old.havePushedRd = 1;
+			return true;
+		}
+		else if ((ALUSrcB == 0 || OP == OP_S) && itRs2 != RdQueue.end())
+		{
+			//printf("Rs2 hazard. Rs2 = %d.\n", rs2);
+			//RdQueue.push_back(-1);
+			//ID_EX_old.havePushedRd = 1;
+			return true;
+		}
+
+		//流水线没有数据冒险，rd入队
+		if (RegWrite == 1)
+		{
+			RdQueue.push_back(rd);
+			ID_EX_old.havePushedRd = 1;
+		}
+		// 否则，非空指令入队-1
+		else
+		{
+			RdQueue.push_back(-1);
+			ID_EX_old.havePushedRd = 1;
+		}
+	}
+	return false;
 }
 
 //执行
@@ -972,6 +1214,8 @@ void EX()
 	int Imm = ID_EX.Imm;
 	REG Reg_Rs1 = ID_EX.Reg_Rs1;
 	REG Reg_Rs2 = ID_EX.Reg_Rs2;
+	int isNop = ID_EX.isNop;
+	int havePushedRd = ID_EX.havePushedRd;
 
 	char ALUSrcA = ID_EX.Ctrl_EX_ALUSrcA;
 	char ALUSrcB = ID_EX.Ctrl_EX_ALUSrcB;
@@ -986,19 +1230,19 @@ void EX()
 
 	//Branch PC calulate
 	if (Branch == 1 || Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5)
-		temp_PC = (temp_PC  * 4 + Imm) / 4;//SB & JAL	
+		temp_PC = (temp_PC * 4 + Imm) / 4;//SB & JAL	
 	else temp_PC = temp_PC;
 	//Branch=6 JALR 在后面用到ALU结果更新
 
 	//JAL
-	//if (Branch==1) printf("JAL temp_PC : %08llx\n", temp_PC * 4);
+	if (Branch == 1) printf("JAL temp_PC : %08llx\n", temp_PC * 4);
 
 	//choose ALU input number
 	REG ALU_A = 0;
 	REG ALU_B = 0;
 
 	if (ALUSrcA == 0) ALU_A = Reg_Rs1;
-	else ALU_A = temp_PC  * 4;//used in AUIPC, ALU_A+ALU_B
+	else ALU_A = temp_PC * 4;//used in AUIPC, ALU_A+ALU_B
 	if (ALUSrcB == 0) ALU_B = Reg_Rs2;
 	else ALU_B = Imm;
 
@@ -1028,6 +1272,7 @@ void EX()
 	case 1:
 	{
 		ALUout = ALU_A*ALU_B;//乘法的低64位
+		if (isNop == 0) num_cycle += 1;  // In pipeline
 		break;
 	}
 	case 2:
@@ -1068,6 +1313,7 @@ void EX()
 		long long ALBH = ((A_Low*B_High) >> 32) & 0xFFFF;
 
 		ALUout = AHBH + AHBL + ALBH;
+		if (isNop == 0) num_cycle += 1;  // In pipeline
 		break;
 	}
 	case 5:
@@ -1083,6 +1329,7 @@ void EX()
 	case 7:
 	{
 		ALUout = ALU_A / ALU_B;
+		if (isNop == 0) num_cycle += 39;  // In pipeline
 		break;
 	}
 	case 8:
@@ -1103,6 +1350,7 @@ void EX()
 	case 11:
 	{
 		ALUout = ALU_A % ALU_B;
+		if (isNop == 0) num_cycle += 39;  // In pipeline
 		break;
 	}
 	case 12:
@@ -1117,19 +1365,17 @@ void EX()
 	if (Branch == 6) temp_PC = (ALUout &(~1)) / 4;//JALR fresh PC number
 	//JALR
 	//if (Branch==6) printf("JALR ALUout : %llx\n", ALUout);
-	//if (Branch==6) printf("JALR temp_PC : %llx\n", temp_PC * 4);
-
-	//complete Branch instruction PC change
-	if ((Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5) && Zero == 0)
-		global_PC = temp_PC;//跳转，设置新地址, SB type
-	else if (Branch == 1 || Branch == 6) global_PC = temp_PC;// JAL&JALR
+	//if (Branch==6) printf("JALR temp_PC : %llx\n", temp_PC * 4);	
 
 	//write EX_MEM_old
-	EX_MEM_old.PC = old_PC ;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
+	EX_MEM_old.PC = old_PC;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
+	EX_MEM_old.Jump_PC = temp_PC;
 	EX_MEM_old.Rd = Rd;
 	EX_MEM_old.ALU_out = ALUout;
 
 	EX_MEM_old.Reg_Rs2 = Reg_Rs2;
+	EX_MEM_old.isNop = isNop;
+	EX_MEM_old.havePushedRd = havePushedRd;
 
 	EX_MEM_old.Ctrl_M_Branch = Branch;
 	EX_MEM_old.Ctrl_M_Zero = Zero;
@@ -1140,9 +1386,11 @@ void EX()
 	EX_MEM_old.Ctrl_WB_MemtoReg = MemtoReg;
 
 	//write EX_WB_old
-	EX_WB_old.PC = old_PC ;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
+	EX_WB_old.PC = old_PC;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
 	EX_WB_old.ALU_out = ALUout;
 	EX_WB_old.Rd = Rd;
+	EX_WB_old.isNop = isNop;
+	EX_WB_old.havePushedRd = havePushedRd;
 	EX_WB_old.Ctrl_WB_RegWrite = RegWrite;
 	EX_WB_old.Ctrl_WB_MemtoReg = MemtoReg;
 }
@@ -1155,6 +1403,8 @@ void MEM()
 	int Rd = EX_MEM.Rd;//rd值
 	REG ALUout = EX_MEM.ALU_out;
 	REG Reg_Rs2 = EX_MEM.Reg_Rs2;
+	int isNop = EX_MEM.isNop;
+	int havePushedRd = EX_MEM.havePushedRd;
 
 	char Branch = EX_MEM.Ctrl_M_Branch;
 	char Zero = EX_MEM.Ctrl_M_Zero;
@@ -1166,75 +1416,80 @@ void MEM()
 
 	//read / write memory
 	unsigned long long int Mem_read;
-	//MemRead=0: don't read from memory
-	//MemRead=1: read from memory, byte
-	//MemRead=2: read from memory, half word, 2 byte
-	//MemRead=3: read from memory, word, 4 byte
-	//MemRead=4: read from memory, double word, 8 byte	
-	if (MemRead == 1)
-	{
-		if (ALUout % 4 == 0) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFF, 1);
-		if (ALUout % 4 == 1) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFF00, 1);
-		if (ALUout % 4 == 2) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFF0000, 1);
-		if (ALUout % 4 == 3) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFF000000, 1);
-	}
-	else if (MemRead == 2)
-	{
-		if (ALUout % 4 == 0 || ALUout % 4 == 1) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFFFF, 1);
-		if (ALUout % 4 == 2 || ALUout % 4 == 3)  Mem_read = ext_signed(((memory[ALUout >> 2] & 0xFFFF0000) >> 16) & 0xFFFF, 1);
-	}
-	else if (MemRead == 3)
-	{
-		Mem_read = ext_signed(memory[ALUout >> 2] & 0xFFFFFFFF, 1);
-	}
-	else if (MemRead == 4)
-	{
-		//注意小端法
-		//读两个memory
-		unsigned long long temp_mem = memory[(ALUout >> 2) + 1];
-		Mem_read = memory[ALUout >> 2] + (temp_mem << 32);
-		//我觉得这个是小端法了，但不确定…
-	}
 
-	//write to memory
-	//MemWrite=0: don't write to memory
-	//MemWrite=1: write to memory, byte, [7:0]
-	//MemWrite=2: write to memory, half word[15:0]
-	//MemWrite=3: write to memory, word[31:0]
-	//MemWrite=4: write to memory, double word[63:0]	
-	if (MemWrite == 1)
+	if (isNop == 0)
 	{
-		unsigned int temp_read = memory[(ALUout >> 2)&(~0x3)];//把ALUout搞成4的倍数，读出4个byte
-		unsigned int temp_write = Reg_Rs2 & 0xFF;
-		if (ALUout % 4 == 0) memory[(ALUout >> 2)] = (temp_read&(~0xFF)) + temp_write;
-		if (ALUout % 4 == 1) memory[(ALUout >> 2)] = (temp_read&(~0xFF00)) + ((temp_write << 8) & 0xFF00);
-		if (ALUout % 4 == 2) memory[(ALUout >> 2)] = (temp_read&(~0xFF0000)) + ((temp_write << 16) & 0xFF0000);
-		if (ALUout % 4 == 3) memory[(ALUout >> 2)] = (temp_read&(~0xFF000000)) + ((temp_write << 24) & 0xFF000000);
-	}
-	else if (MemWrite == 2)//
-	{
-		unsigned int temp_read = memory[(ALUout >> 2)];
-		unsigned int temp_write = Reg_Rs2 & 0xFFFF;
-		if (ALUout % 4 == 0 || ALUout % 4 == 1) memory[(ALUout >> 2)] = (temp_read&(~0xFFFF)) + temp_write;
-		if (ALUout % 4 == 2 || ALUout % 4 == 3) memory[(ALUout >> 2)] = (temp_read & 0xFFFF) + ((temp_write << 16) & 0xFFFF0000);
-	}
-	else if (MemWrite == 3)
-	{
-		memory[(ALUout >> 2)] = Reg_Rs2 & 0xFFFFFFFF;
-	}
-	else if (MemWrite == 4)
-	{
-		//我感觉这是小端的放法，也比划了一下，然而还是可能出bugQAQ
-		memory[(ALUout >> 2)] = Reg_Rs2 & 0xFFFFFFFF;
-		unsigned long long temp_mask = (0xFFFFFFFF00000000);
-		memory[(ALUout >> 2) + 1] = (int)(Reg_Rs2&temp_mask);
-	}
+		//MemRead=0: don't read from memory
+		//MemRead=1: read from memory, byte
+		//MemRead=2: read from memory, half word, 2 byte
+		//MemRead=3: read from memory, word, 4 byte
+		//MemRead=4: read from memory, double word, 8 byte	
+		if (MemRead == 1)
+		{
+			if (ALUout % 4 == 0) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFF, 1);
+			if (ALUout % 4 == 1) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFF00, 1);
+			if (ALUout % 4 == 2) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFF0000, 1);
+			if (ALUout % 4 == 3) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFF000000, 1);
+		}
+		else if (MemRead == 2)
+		{
+			if (ALUout % 4 == 0 || ALUout % 4 == 1) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFFFF, 1);
+			if (ALUout % 4 == 2 || ALUout % 4 == 3)  Mem_read = ext_signed(((memory[ALUout >> 2] & 0xFFFF0000) >> 16) & 0xFFFF, 1);
+		}
+		else if (MemRead == 3)
+		{
+			Mem_read = ext_signed(memory[ALUout >> 2] & 0xFFFFFFFF, 1);
+		}
+		else if (MemRead == 4)
+		{
+			//注意小端法
+			//读两个memory
+			unsigned long long temp_mem = memory[(ALUout >> 2) + 1];
+			Mem_read = memory[ALUout >> 2] + (temp_mem << 32);
+			//我觉得这个是小端法了，但不确定…
+		}
 
+		//write to memory
+		//MemWrite=0: don't write to memory
+		//MemWrite=1: write to memory, byte, [7:0]
+		//MemWrite=2: write to memory, half word[15:0]
+		//MemWrite=3: write to memory, word[31:0]
+		//MemWrite=4: write to memory, double word[63:0]	
+		if (MemWrite == 1)
+		{
+			unsigned int temp_read = memory[(ALUout >> 2)&(~0x3)];//把ALUout搞成4的倍数，读出4个byte
+			unsigned int temp_write = Reg_Rs2 & 0xFF;
+			if (ALUout % 4 == 0) memory[(ALUout >> 2)] = (temp_read&(~0xFF)) + temp_write;
+			if (ALUout % 4 == 1) memory[(ALUout >> 2)] = (temp_read&(~0xFF00)) + ((temp_write << 8) & 0xFF00);
+			if (ALUout % 4 == 2) memory[(ALUout >> 2)] = (temp_read&(~0xFF0000)) + ((temp_write << 16) & 0xFF0000);
+			if (ALUout % 4 == 3) memory[(ALUout >> 2)] = (temp_read&(~0xFF000000)) + ((temp_write << 24) & 0xFF000000);
+		}
+		else if (MemWrite == 2)//
+		{
+			unsigned int temp_read = memory[(ALUout >> 2)];
+			unsigned int temp_write = Reg_Rs2 & 0xFFFF;
+			if (ALUout % 4 == 0 || ALUout % 4 == 1) memory[(ALUout >> 2)] = (temp_read&(~0xFFFF)) + temp_write;
+			if (ALUout % 4 == 2 || ALUout % 4 == 3) memory[(ALUout >> 2)] = (temp_read & 0xFFFF) + ((temp_write << 16) & 0xFFFF0000);
+		}
+		else if (MemWrite == 3)
+		{
+			memory[(ALUout >> 2)] = Reg_Rs2 & 0xFFFFFFFF;
+		}
+		else if (MemWrite == 4)
+		{
+			//我感觉这是小端的放法，也比划了一下，然而还是可能出bugQAQ
+			memory[(ALUout >> 2)] = Reg_Rs2 & 0xFFFFFFFF;
+			unsigned long long temp_mask = (0xFFFFFFFF00000000);
+			memory[(ALUout >> 2) + 1] = (int)(Reg_Rs2&temp_mask);
+		}
+	}
 	//write MEM_WB_old
 	MEM_WB_old.PC = old_PC;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
 	MEM_WB_old.Mem_read = Mem_read;
 	MEM_WB_old.ALU_out = ALUout;
 	MEM_WB_old.Rd = Rd;
+	MEM_WB_old.isNop = isNop;
+	MEM_WB_old.havePushedRd = havePushedRd;
 
 	MEM_WB_old.Ctrl_WB_RegWrite = RegWrite;
 	MEM_WB_old.Ctrl_WB_MemtoReg = MemtoReg;
@@ -1247,32 +1502,20 @@ void WB()
 	unsigned long long int Mem_read;
 	REG ALUout;
 	int Rd;
+	int isNop;
+	int havePushedRd;
+
 	char  RegWrite;
 	char MemtoReg;
-	if (state == STATE_WB_LB)
-	{
-		//read from MEM_WB
-		temp_PC = MEM_WB.PC;//用于送到rd里面去，是本指令的old_PC值，需要变换之后再放到寄存器里面
-		Mem_read = MEM_WB.Mem_read;
-		ALUout = MEM_WB.ALU_out;
-		Rd = MEM_WB.Rd;//rd的值
 
-		//RegWrite=0: don't write to register
-		 //RegWrite=1: write to register	 
-		RegWrite = MEM_WB.Ctrl_WB_RegWrite;
-
-		//MemtoReg=0: send ALU's result to register
-		//MemtoReg=1: send Memory's result to register
-		//MemtoReg=2: write old_PC*4+4 to R[rd] in JALR&JALto register
-		MemtoReg = MEM_WB.Ctrl_WB_MemtoReg;
-	}
-	else if (state == STATE_WB_R)
+	if (state == STATE_WB_R)
 	{
 		//read from EX_WB
 		temp_PC = EX_WB.PC;//用于送到rd里面去，是本指令的old_PC值，需要变换之后再放到寄存器里面		
 		ALUout = EX_WB.ALU_out;
 		Rd = EX_WB.Rd;//rd的值
-
+		isNop = EX_WB.isNop;
+		havePushedRd = EX_WB.havePushedRd;
 		//RegWrite=0: don't write to register
 		//RegWrite=1: write to register	 
 		RegWrite = EX_WB.Ctrl_WB_RegWrite;
@@ -1282,18 +1525,46 @@ void WB()
 		//MemtoReg=2: write old_PC*4+4 to R[rd] in JALR&JALto register
 		MemtoReg = EX_WB.Ctrl_WB_MemtoReg;
 	}
-
-	//在EX里面把PC就写回去啦~
-
-	//write reg      
-	//啊Rd这里需要个什么东西把rd传过来…
-	//前面好像都错了QAQ要么就再加个变量把rd也传下来
-	//好吧我试试把rd一直传下来
-	if (RegWrite == 1)
+	//else if (state == STATE_WB_LB)
+	else // Suitable for Pipeline
 	{
-		if (MemtoReg == 0) reg[Rd] = ALUout;
-		else if (MemtoReg == 1) reg[Rd] = Mem_read;
-		else if (MemtoReg == 2) reg[Rd] = temp_PC * 4 + 4;//送到reg里面，所以最后不用/4
-		else if (MemtoReg == 3) reg[Rd] = ext_signed(ALUout, 1);
+		//read from MEM_WB
+		temp_PC = MEM_WB.PC;//用于送到rd里面去，是本指令的old_PC值，需要变换之后再放到寄存器里面
+		Mem_read = MEM_WB.Mem_read;
+		ALUout = MEM_WB.ALU_out;
+		Rd = MEM_WB.Rd;//rd的值
+		isNop = MEM_WB.isNop;
+		havePushedRd = MEM_WB.havePushedRd;
+		//RegWrite=0: don't write to register
+		//RegWrite=1: write to register	 
+		RegWrite = MEM_WB.Ctrl_WB_RegWrite;
+
+		//MemtoReg=0: send ALU's result to register
+		//MemtoReg=1: send Memory's result to register
+		//MemtoReg=2: write old_PC*4+4 to R[rd] in JALR&JALto register
+		MemtoReg = MEM_WB.Ctrl_WB_MemtoReg;
+	}
+
+	//在主模拟器(之前是在EX)里面把PC就写回去啦~
+
+	if (isNop == 0)
+	{
+		//write reg      
+		//啊Rd这里需要个什么东西把rd传过来…
+		//前面好像都错了QAQ要么就再加个变量把rd也传下来
+		//好吧我试试把rd一直传下来
+		if (RegWrite == 1)
+		{
+			if (MemtoReg == 0) reg[Rd] = ALUout;
+			else if (MemtoReg == 1) reg[Rd] = Mem_read;
+			else if (MemtoReg == 2) reg[Rd] = temp_PC * 4 + 4;//送到reg里面，所以最后不用/4
+			else if (MemtoReg == 3) reg[Rd] = ext_signed(ALUout, 1);
+		}
+		if (havePushedRd)
+		{
+			//流水线
+			vector<int>::iterator k = RdQueue.begin();
+			RdQueue.erase(k);//删除第一个元素
+		}
 	}
 }

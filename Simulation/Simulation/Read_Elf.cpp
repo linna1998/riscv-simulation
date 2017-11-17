@@ -28,6 +28,11 @@ extern unsigned long long sdadr;
 extern unsigned long long sdsize;
 extern unsigned long long radr;
 extern unsigned long long rsize;
+extern unsigned long long a_adr;
+extern unsigned long long b_adr;
+extern unsigned long long c_adr;
+extern unsigned long long temp_adr;
+extern unsigned long long sum_adr;
 extern unsigned long long main_adr;
 extern unsigned long long gp;
 extern unsigned int entry;
@@ -334,6 +339,22 @@ void read_symtable()
 			radr = elf64_sym.st_value;
 			rsize = elf64_sym.st_size;
 
+		}
+		if (!strcmp((const char*)(sysname + elf64_sym.st_name), "a"))
+		{
+			a_adr = elf64_sym.st_value;			
+		}
+		if (!strcmp((const char*)(sysname + elf64_sym.st_name), "b"))
+		{
+			b_adr = elf64_sym.st_value;
+		}
+		if (!strcmp((const char*)(sysname + elf64_sym.st_name), "c"))
+		{
+			c_adr = elf64_sym.st_value;
+		}
+		if (!strcmp((const char*)(sysname + elf64_sym.st_name), "temp"))
+		{
+			temp_adr = elf64_sym.st_value;
 		}
 		if (!strcmp((const char*)(sysname + elf64_sym.st_name), "__global_pointer$"))
 		{

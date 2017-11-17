@@ -4,10 +4,13 @@ typedef unsigned long long REG;
 
 struct IFID 
 {
-	unsigned int inst;
 	//inst means the instruction which is going to execute
-	int PC;
+	unsigned int inst;
 	//PC means the index of the instruction
+	int PC;
+	// isNop==1 means is a Nop instruction
+	int isNop;
+
 }IF_ID, IF_ID_old;
 
 
@@ -17,6 +20,8 @@ struct IDEX
 	int PC;
 	int Imm;
 	REG Reg_Rs1,Reg_Rs2;	
+	int isNop;
+	int havePushedRd;  // 表示本指令ID阶段是否push了Rd, =1是push过了
 
 	char Ctrl_EX_ALUSrcA;
 	char Ctrl_EX_ALUSrcB;
@@ -34,9 +39,12 @@ struct IDEX
 struct EXMEM 
 {
 	int PC;
+	int Jump_PC;
 	int Rd;//int值，应该是rd值
 	REG ALU_out;
 	REG Reg_Rs2;//used in writing to memory
+	int isNop;
+	int havePushedRd;  // 表示本指令ID阶段是否push了Rd, =1是push过了
 
 	char Ctrl_M_Branch;
 	char Ctrl_M_Zero;
@@ -53,6 +61,8 @@ struct EXWB
 	int PC;//用于WB里面写到寄存器，例如JAL指令
 	REG ALU_out;
 	int Rd;
+	int isNop;
+	int havePushedRd;  // 表示本指令ID阶段是否push了Rd, =1是push过了
 
 	char Ctrl_WB_RegWrite;
 	char Ctrl_WB_MemtoReg;
@@ -65,6 +75,8 @@ struct MEMWB
 	unsigned long long int Mem_read;//the data from the memory
 	REG ALU_out;
 	int Rd;
+	int isNop;
+	int havePushedRd;  // 表示本指令ID阶段是否push了Rd, =1是push过了
 
 	char Ctrl_WB_RegWrite;
 	char Ctrl_WB_MemtoReg;

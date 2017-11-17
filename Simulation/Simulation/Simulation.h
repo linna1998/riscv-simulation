@@ -5,7 +5,12 @@
 
 #include<time.h>
 #include<stdlib.h>
+#include<vector>
+#include<algorithm>
+#include<queue>
 #include"Reg_def.h"
+
+using namespace std;
 
 //R type
 #define OP_R 51
@@ -154,6 +159,8 @@ STATE_WB_LB,	// STATE_MEM_LB
 STATE_IF,	// STATE_WB_R
 STATE_IF };	// STATE_WB_LB
 
+// 数据冒险的冲突队列
+vector<int> RdQueue;
 
 //各个指令解析段
 unsigned int OP = 0;
@@ -166,11 +173,13 @@ unsigned int imm_SB = 0;//SB
 unsigned int imm_U = 0;//U
 unsigned int imm_UJ = 0;//UJ
 
-void simulate();
+void SingleCycleProcessor();
+void MultiCycleProcessor();
+void PipelineProcessor();
 
 void IF();
 
-void ID();
+bool ID();
 
 void EX();
 
