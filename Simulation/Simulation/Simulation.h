@@ -104,6 +104,11 @@ using namespace std;
 //UJ type
 #define OP_JAL 0x6f
 
+// Define the state of the simulator.
+#define SINGLE 0
+#define MULTI 1
+#define PIPELINE 2
+
 // Define the states for multiple cycle processor.
 #define STATE_IF 0
 #define STATE_ID 1
@@ -130,6 +135,8 @@ int global_PC = 0;
 int state = STATE_IF;
 int num_cycle = 0;
 int num_inst = 0;
+int num_branch_nop = 0;
+int num_data_nop = 0;
 
 // In multiple cycle processor. The next state.
 int state_change[12] =

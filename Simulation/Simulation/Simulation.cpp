@@ -22,15 +22,16 @@ extern unsigned int entry;
 extern unsigned int endPC;
 extern FILE *file;
 
-// 单步调试flag，如果TF == 1，进入单步调试模式，每步输出寄存器堆
+// Single step debugging flag.
+// If TF == 1: single step debugging.
 static bool TF = false;
 
-// ProcessorMode = 0: Single Cycle Processor
-// ProcessorMode = 1: Multiple Cycle Processor
-// ProcessorMode = 2: Pipeline Processor
-static int ProcessorMode = 0;
+// ProcessorMode = 0: Single Cycle Processor.
+// ProcessorMode = 1: Multiple Cycle Processor.
+// ProcessorMode = 2: Pipeline Processor.
+static int ProcessorMode = SINGLE;
 
-// 系统调用退出指示
+// System call return.
 #define RET_INST 0x00008067
 
 static char SymbolicName[32][3] = {
@@ -40,10 +41,9 @@ static char SymbolicName[32][3] = {
 	"s8", "s9", "sa", "sb", "t3", "t4", "t5", "t6"
 };
 
-// 打印寄存器堆
+// Print the registers.
 void print_regs()
 {
-	/*
 	printf("Register:\n");
 	for (int i = 0; i < 32; i++)
 	{
@@ -53,15 +53,9 @@ void print_regs()
 		printf("[%2d][%2s]0x%8llx\n", i, SymbolicName[i], reg[++i]);
 	}
 	printf("\n");
-	*/
-	printf("\n");
-	for (int i = 0; i < 32; i++)
-	{
-		if (reg[i] != 0) printf("[%2d][%2s]0x%8llx\n", i, SymbolicName[i], reg[i]);
-	}
 }
 
-// 打印栈
+// Print the stack.
 void print_stack()
 {
 	printf("Highest 32 Stack: \n");
@@ -78,7 +72,7 @@ void print_stack()
 	printf("\n");
 }
 
-// 打印代码段
+// Print the .data section memory.
 void print_data()
 {
 	printf(".data Section Memory:\n");
@@ -95,6 +89,7 @@ void print_data()
 	printf("\n");
 }
 
+// Print the results. The global variables.
 void print_result()
 {
 	printf("Result:\n");
@@ -116,7 +111,7 @@ void print_result()
 	printf("sum: %d\n", memory[sum_adr >> 2]);
 }
 
-// 打印代码段
+// Print the .text setion memory.
 void print_text()
 {
 	printf(".text Section Memory:\n");
@@ -133,7 +128,7 @@ void print_text()
 	printf("\n");
 }
 
-// 加载代码段
+// Load the .text section.
 void load_text()
 {
 	if (fseek(file, cadr - 0x10000, 0))
@@ -143,7 +138,7 @@ void load_text()
 	if (!fread(&memory[cadr >> 2], 1, csize, file))
 	{
 		perror("fread");
-	}  // 注意这里vadr换算到memory数组要除以4
+	}
 }
 
 void load_data()
@@ -155,7 +150,7 @@ void load_data()
 	if (!fread(&memory[dadr >> 2], 1, dsize, file))
 	{
 		perror("fread");
-	}  // 注意这里dadr换算到memory数组要除以4
+	}
 }
 
 void load_sdata()
@@ -167,7 +162,7 @@ void load_sdata()
 	if (!fread(&memory[sdadr >> 2], 1, sdsize, file))
 	{
 		perror("fread");
-	}  // 注意这里dadr换算到memory数组要除以4
+	}
 }
 
 int main(int argc, char* argv[])
@@ -184,7 +179,7 @@ int main(int argc, char* argv[])
 				cout << "  --TF   : Enter step through mode.  Not TF Mode by default." << endl;
 				cout << "  --name : The excutable file's name. './test' by default." << endl;
 				cout << "           For example, --name=./QuickSort" << endl;
-				cout << "  --SF, --MF, --TF: The simulator's modules." << endl;
+				cout << "  --SF, --MF, --TF : The simulator's modules." << endl;
 				cout << "           --SF means single cycle processor." << endl;
 				cout << "           --MF means multiple cycle processor." << endl;
 				cout << "           --PF means pipelin processor." << endl;
@@ -205,19 +200,19 @@ int main(int argc, char* argv[])
 			{
 				cout << "Single cycle processor." << endl;
 				cout << endl;
-				ProcessorMode = 0;
+				ProcessorMode = SINGLE;
 			}
 			else if (strcmp(argv[i], "--MF") == 0)
 			{
 				cout << "Multiple cycle processor." << endl;
 				cout << endl;
-				ProcessorMode = 1;
+				ProcessorMode = MULTI;
 			}
 			else if (strcmp(argv[i], "--PF") == 0)
 			{
 				cout << "Pipeline processor." << endl;
 				cout << endl;
-				ProcessorMode = 2;
+				ProcessorMode = PIPELINE;
 			}
 			else
 			{
@@ -227,7 +222,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	// 解析elf文件
+	// Read the .elf file.
 	cout << "OPEN FILE: " << filename << endl << endl;
 	file = fopen(filename, "r+");
 	if (!file)
@@ -237,34 +232,39 @@ int main(int argc, char* argv[])
 	}
 	read_elf();
 
-	// 加载内存
+	// Load the memory.
 	load_text();
 	load_data();
 	load_sdata();
 	fclose(file);
 
-	// 设置入口地址
+	// Set the PC entry.
 	global_PC = entry >> 2;
 
-	// 设置全局数据段地址寄存器
+	// Set gp register.
 	reg[3] = gp;
 
-	reg[2] = MAX / 2;  // 栈基址 （sp寄存器）
+	reg[2] = MAX / 2;  // Set sp register for stack.
 
 	cout << "[!] Simulation starts!" << endl;
 	printf("===============================================================================\n");
 
-	if (ProcessorMode == 0)
+	if (ProcessorMode == SINGLE)
 		SingleCycleProcessor();
-	else if (ProcessorMode == 1)
+	else if (ProcessorMode == MULTI)
 		MultiCycleProcessor();
-	else if (ProcessorMode == 2)
+	else if (ProcessorMode == PIPELINE)
 		PipelineProcessor();
 
 	printf("===============================================================================\n");
 	printf("[!] Simulation is over!\n");
 	printf(" Instruction Number : %d\n", num_inst);
 	printf(" Cycle Number       : %d\n", num_cycle);
+	if (ProcessorMode == PIPELINE)
+	{
+		printf(" Branch_nop_cycle   : %d\n", num_branch_nop);
+		printf(" Data_nop_cycle     : %d\n", num_data_nop);
+	}
 	printf(" CPI                : %f\n", num_cycle / (float)(num_inst));
 	printf("Please press Enter to continue...\n");
 
@@ -275,6 +275,7 @@ int main(int argc, char* argv[])
 
 void SingleCycleProcessor()
 {
+	bool jump = false;
 	num_cycle = 0;
 	num_inst = 0;
 	while ((global_PC * 4) != endPC)
@@ -284,30 +285,27 @@ void SingleCycleProcessor()
 			printf("[TF] Instruction:  %08x\n", memory[global_PC]);
 			printf("PC              :  %08X\n", global_PC * 4);
 		}
-		// Addd instruction number.
+		// Add instruction number.
 		num_inst++;
 		num_cycle++;
-		IF();
-		// 更新中间寄存器
-		IF_ID = IF_ID_old;
 
+		IF();
+		// Refresh the registers.
+		IF_ID = IF_ID_old;
 		ID();
 		ID_EX = ID_EX_old;
-
-		bool jump= EX();
-		EX_MEM = EX_MEM_old;		
-						
+		jump = EX();
+		EX_MEM = EX_MEM_old;
 		MEM();
 		MEM_WB = MEM_WB_old;
-
 		WB();
-		
+
 		if (jump)
 		{
-			global_PC = EX_MEM.Jump_PC;//跳转，设置新地址
+			global_PC = EX_MEM.Jump_PC;  // Jump. Set the new PC.
 		}
-		
-		reg[0] = 0;  // 一直为零
+
+		reg[0] = 0;
 
 		if (TF)
 		{
@@ -327,7 +325,8 @@ void SingleCycleProcessor()
 
 void MultiCycleProcessor()
 {
-	state = STATE_IF;
+	bool jump = false;
+	state = STATE_IF;  // Initialize the state.
 	num_cycle = 0;
 	num_inst = 0;
 	int temp_state = state;
@@ -340,7 +339,7 @@ void MultiCycleProcessor()
 			cout << "state           :" << state << endl;
 		}
 		temp_state = state;
-		// 运行
+		// Run.
 		switch (state)
 		{
 			// If state = 0, then come to this state 
@@ -358,13 +357,12 @@ void MultiCycleProcessor()
 		}
 		case (STATE_EX_R):
 		{
-			bool jump = EX();
+			jump = EX();
 			// Jump for JAL JALR. 
-			EX_WB= EX_WB_old;
+			EX_WB = EX_WB_old;
 			if (jump)
 			{
-				printf("Jump_PC to %d.\n", EX_WB.Jump_PC*4);
-				global_PC = EX_WB.Jump_PC;//跳转，设置新地址
+				global_PC = EX_WB.Jump_PC;  // Jump. Set new PC.
 			}
 			break;
 		}
@@ -393,15 +391,12 @@ void MultiCycleProcessor()
 			break;
 		}
 		case (STATE_EX_SB):
-		{		
-			//如果返回true说明跳转
-			//如果返回false说明不跳转
-			bool jump = EX();  
+		{
+			jump = EX();
 			EX_MEM = EX_MEM_old;
 			if (jump)
 			{
-				printf("Jump_PC to %d.\n", EX_MEM.Jump_PC*4);
-				global_PC = EX_MEM.Jump_PC;//跳转，设置新地址
+				global_PC = EX_MEM.Jump_PC;  // Jump. Set new PC.
 			}
 			break;
 		}
@@ -434,22 +429,21 @@ void MultiCycleProcessor()
 		{
 			state = state_change[temp_state];
 		}
-		// Addd instruction number.
+		// Add instruction number.
 		if (temp_state == STATE_IF)
 		{
 			num_inst++;
-		}		
+		}
+		// Add cycle number.
+		num_cycle += 1;
 
-		//有了流水线之后，num_cycle在EX里面加了
-		num_cycle += 1;	
-
-		reg[0] = 0;  // 一直为零
+		reg[0] = 0;
 
 		if (TF)
 		{
 			print_regs();
 			print_stack();
-			//print_result();
+			print_result();
 			getchar();
 		}
 	}
@@ -465,6 +459,9 @@ void PipelineProcessor()
 {
 	num_cycle = 0;
 	num_inst = 0;
+	num_branch_nop = 0;
+	num_data_nop = 0;
+
 	bool conflict = false;
 	bool jump = false;
 	int temp_IF_PC = 0;
@@ -510,16 +507,17 @@ void PipelineProcessor()
 		conflict = ID();
 		//如果返回true说明跳转
 		//如果返回false说明不跳转
-		jump= EX();  // EX中跳转可能再改PC，这个改的优先级高
+		jump = EX();  // EX中跳转可能再改PC，这个改的优先级高
 		MEM();
 		WB();
-		
+
 		// PC 跳转逻辑		
 		if (jump)
 		{
 			global_PC = EX_MEM_old.Jump_PC;//跳转，设置新地址
 			IF_ID_old.isNop = 1;
 			ID_EX_old.isNop = 1;
+			num_branch_nop += 2;
 			if (ID_EX_old.havePushedRd == 1)
 			{
 				RdQueue.pop_back();
@@ -534,6 +532,7 @@ void PipelineProcessor()
 			//printf("global_PC become %08X\n.", global_PC * 4);
 			IF_ID_old.isNop = 1;
 			ID_EX_old.isNop = 1;
+			num_data_nop++;
 			if (ID_EX_old.havePushedRd == 1)
 			{
 				RdQueue.pop_back();
@@ -570,7 +569,6 @@ void PipelineProcessor()
 
 		if (TF)
 		{
-
 			printf("After doing things.\n");
 			printf("PC_IF             :  %08X\n", global_PC * 4);
 			printf("PC_ID             :  %08X, isNop  %d\n", IF_ID.PC * 4, IF_ID.isNop);
@@ -606,24 +604,26 @@ void PipelineProcessor()
 }
 
 
-//32位指令，64位寄存器
-//取指令
+// 32 bits instruction.
+// 64 bits register.
+
+// Instruction fetch.
 void IF()
 {
 	//write IF_ID_old
 	IF_ID_old.inst = memory[global_PC];
-	IF_ID_old.PC = global_PC;//存的是本指令的PC
-	global_PC = global_PC + 1;//int memory[], so PC+1 means add 4 bytes	
+	IF_ID_old.PC = global_PC;  // Store the PC of this instruction.
+	global_PC = global_PC + 1;  //int memory[], so PC+1 means add 4 bytes	
 	IF_ID_old.isNop = 0;
 }
 
-//译码
-//返回是否发生数据冲突
+// INstruction decode.
+// return true means data conflict in pipeline.
 bool ID()
 {
 	//Read IF_ID
 	unsigned int inst = IF_ID.inst;
-	unsigned int temp_PC = IF_ID.PC;  // 本指令PC
+	unsigned int temp_PC = IF_ID.PC;  // The PC of this instruction.
 	int isNop = IF_ID.isNop;
 
 	//EXTop=0: Zero extend
@@ -713,7 +713,7 @@ bool ID()
 	int temp_4 = getbit(inst, 31, 31)*(1 << 20);//UJ
 	imm_UJ = temp_1 + temp_2 + temp_3 + temp_4;
 
-	int next_state = STATE_EX_R;  // 先设一个默认的缺失值，后面会改的
+	int next_state = STATE_EX_R;  // Default setting.
 
 	// NOP instruction
 	if (isNop)
@@ -993,16 +993,13 @@ bool ID()
 	//WB: old_PC*4+4 -> R[rd], (ALU result*2)/4->PC
 	else if (OP == OP_JALR)
 	{
-
 		next_state = STATE_EX_R;
-		//???
 		//R[rd] ←old_PC*4+4
 		//PC ← { (R[rs1] + imm), 1b'0} /4
 		if (fuc3 == F3_JALR)
 		{
 			EXTop = 1;//sign extend
 			EXTsrc = imm_I;
-			//printf("IMM : %llx\n", imm_I);
 			ALUop = 0;
 			ALUSrcA = 0;
 			ALUSrcB = 1;
@@ -1016,13 +1013,12 @@ bool ID()
 	else if (OP == OP_ECALL)
 	{
 		next_state = STATE_EX_R;
-		//Transfers control to operating system)
+		//Transfers control to operating system.
 		//a0 = 1 is print value of a1 as an integer.
 		//a0 = 10 is exit or end of code indicator
 		if (fuc3 == F3_ECALL && fuc7 == F7_ECALL)
 		{
-			//??? 
-			//what's a0 && a1 ??
+			printf("ECALL. Illegal instruction.\n");
 		}
 	}
 	//S type
@@ -1058,12 +1054,10 @@ bool ID()
 			MemWrite = 4;
 		}
 	}
-
 	//SB type
 	else if (OP == OP_SB)
 	{
 		next_state = STATE_EX_SB;
-		//???
 		//same control parts
 		EXTop = 1;//signed extern, but not used in this ALU			
 		EXTsrc = imm_SB;
@@ -1103,7 +1097,6 @@ bool ID()
 	else if (OP == OP_AUIPC)
 	{
 		next_state = STATE_EX_R;
-		//???
 		//get PC value as rs1 to ALU
 		EXTop = 1;//sign extend
 		EXTsrc = imm_U*(1 << 12);
@@ -1136,7 +1129,6 @@ bool ID()
 	//UI type
 	else if (OP == OP_JAL)
 	{
-		//???
 		//R[rd] ← old_PC*4 + 4
 		//PC ← ( old_PC *4 + {imm, 1b'0} )/4 //finished
 		next_state = STATE_EX_R;
@@ -1151,18 +1143,16 @@ bool ID()
 		MemWrite = 0;
 		RegWrite = 1;
 		MemtoReg = 2;
-
-		printf("JAL ID");
 	}
 
-	//多周期
-	state = next_state;
+	// Set the state in multiple cycle processor.
+	if (ProcessorMode == MULTI) state = next_state;
 
 	//write ID_EX_old
 	ID_EX_old.Rd = rd;
-	ID_EX_old.PC = temp_PC;  // 本指令PC
+	ID_EX_old.PC = temp_PC;  // The PC of this instruction.
 	ID_EX_old.Imm = ext_signed(EXTsrc, EXTop);
-	ID_EX_old.Reg_Rs1 = reg[rs1];  // 译码阶段取操作数
+	ID_EX_old.Reg_Rs1 = reg[rs1];  // Get the number in register in decode step.
 	ID_EX_old.Reg_Rs2 = reg[rs2];
 	ID_EX_old.isNop = isNop;
 	ID_EX_old.havePushedRd = 0;
@@ -1178,48 +1168,29 @@ bool ID()
 	ID_EX_old.Ctrl_WB_RegWrite = RegWrite;
 	ID_EX_old.Ctrl_WB_MemtoReg = MemtoReg;
 
-	// Debug.
-	/*
-	if (OP == OP_S)
+	if (isNop == 0 && ProcessorMode == PIPELINE)
 	{
-		printf("OP_SB. Rs1 = %d. Rs2 = %d \n", rs1, rs2);
-	}
-	if (temp_PC * 4 == 0x101ec)
-	{
-		printf("0x101ec. OP = %d. Rs1 = %d. Rs2 = %d \n", OP, rs1, rs2);
-	}
-	*/
-
-	// 流水线下，针对非空指令
-	if (isNop == 0 && ProcessorMode == 2)
-	{
-		//判断冲突
+		// Judge hazard.
 		vector<int>::iterator itRs1, itRs2;
 		itRs1 = find(RdQueue.begin(), RdQueue.end(), rs1);
 		itRs2 = find(RdQueue.begin(), RdQueue.end(), rs2);
 		if (ALUSrcA == 0 && itRs1 != RdQueue.end())
 		{
-			//printf("Rs1 hazard. Rs1 = %d.\n", rs1);
-			// 可以把冲突时候的push去了么？
-			//RdQueue.push_back(-1);
-			//ID_EX_old.havePushedRd = 1;
 			return true;
 		}
 		else if ((ALUSrcB == 0 || OP == OP_S) && itRs2 != RdQueue.end())
 		{
-			//printf("Rs2 hazard. Rs2 = %d.\n", rs2);
-			//RdQueue.push_back(-1);
-			//ID_EX_old.havePushedRd = 1;
 			return true;
 		}
 
-		//流水线没有数据冒险，rd入队
+		// No hazard. 		
+		// Push Rd into RdQueue if it writes Rd.
 		if (RegWrite == 1)
 		{
 			RdQueue.push_back(rd);
 			ID_EX_old.havePushedRd = 1;
 		}
-		// 否则，非空指令入队-1
+		// Else, push back -1.
 		else
 		{
 			RdQueue.push_back(-1);
@@ -1229,15 +1200,14 @@ bool ID()
 	return false;
 }
 
-//执行
-//如果返回true说明跳转
-//如果返回false说明不跳转
+// Execute.
+// If it returns true, then have to jump.
 bool EX()
 {
 	//read ID_EX	
 	int Rd = ID_EX.Rd;
-	int temp_PC = ID_EX.PC;  // 本指令PC
-	int old_PC = ID_EX.PC;  // 本指令PC
+	int temp_PC = ID_EX.PC;   // The PC of this instruction.
+	int old_PC = ID_EX.PC;  // The PC of this instruction.
 	int Imm = ID_EX.Imm;
 	REG Reg_Rs1 = ID_EX.Reg_Rs1;
 	REG Reg_Rs2 = ID_EX.Reg_Rs2;
@@ -1259,47 +1229,33 @@ bool EX()
 	if (Branch == 1 || Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5)
 		temp_PC = (temp_PC * 4 + Imm) / 4;//SB & JAL	
 	else temp_PC = temp_PC;
-	//Branch=6 JALR 在后面用到ALU结果更新
-
-	//JAL
-	if (Branch == 1) printf("JAL temp_PC : %08llx\n", temp_PC * 4);
 
 	//choose ALU input number
 	REG ALU_A = 0;
 	REG ALU_B = 0;
 
 	if (ALUSrcA == 0) ALU_A = Reg_Rs1;
-	else ALU_A = temp_PC * 4;//used in AUIPC, ALU_A+ALU_B
+	else ALU_A = temp_PC * 4;  //used in AUIPC, ALU_A+ALU_B
 	if (ALUSrcB == 0) ALU_B = Reg_Rs2;
 	else ALU_B = Imm;
 
-	if (Branch == 6)
-	{
-		//printf("Imm in EX: %08llx\n", Imm);
-		//printf("ALU_B in EX: %08llx\n", ALU_B);
-	}
 
-	//alu calculate
-	char Zero = 1;//the branch flag
-	 //if (Branch== (2||3||4||5) ) && (Zero==0) then jump to new PC
+	// Alu calculation.
+	char Zero = 1;  // The branch flag.
+	 // Jump to new PC if (Branch== (2||3||4||5) ) && (Zero==0).
 	REG ALUout;
 	switch (ALUOp)
 	{
 	case 0:
 	{
 		ALUout = ALU_A + ALU_B;
-		if (Branch == 6)
-		{
-			//printf("ALU_A : %08llx\n", ALU_A);
-			//printf("ALU_B : %08llx\n", ALU_B);
-			//printf("ALUout : %08llx\n", ALUout);
-		}
 		break;
 	}
 	case 1:
 	{
-		ALUout = ALU_A*ALU_B;//乘法的低64位
-		if (isNop == 0 && (ProcessorMode != 0)) num_cycle += 1;  // In Multiple processor && pipeline
+		ALUout = ALU_A*ALU_B;  // The lowest 64 bits of multiply.
+		if ((ProcessorMode == MULTI) || (isNop == 0 && ProcessorMode == PIPELINE))
+			num_cycle += 39;  // In Multiple processor && pipeline
 		break;
 	}
 	case 2:
@@ -1312,14 +1268,9 @@ bool EX()
 		ALUout = ext_signed((ALU_A - ALU_B), 1);
 		if (ALUout == 0 && Branch == 2) Zero = 0;
 		if (ALUout != 0 && Branch == 3) Zero = 0;
-		if ((ALUout & (0x8000000000000000)) && Branch == 4) Zero = 0;//the highest bit of ALUout is 1
+		if ((ALUout & (0x8000000000000000)) && Branch == 4) Zero = 0;  // The highest bit of ALUout is 1.
 		if ((!(ALUout & (0x8000000000000000))) && Branch == 5) Zero = 0;
 
-		//printf("ALU_A : %llx\n", ALU_A);
-		//printf("ALU_B : %llx\n", ALU_B);
-		//printf("ALUout : %llx\n", ALUout);
-		//printf("Branch : %llx\n", Branch);
-		//printf("Zero : %llx\n", Zero);
 		break;
 	}
 	case 3:
@@ -1329,7 +1280,7 @@ bool EX()
 	}
 	case 4:
 	{
-		//乘法的高64位
+		// The highest 64 bits of multiply.
 		long long A_High = ((ALU_A & 0xFFFF0000) >> 32) & 0xFFFF;
 		long long A_Low = ALU_A & 0x0000FFFF;
 		long long B_High = ((ALU_B & 0xFFFF0000) >> 32) & 0xFFFF;
@@ -1340,7 +1291,8 @@ bool EX()
 		long long ALBH = ((A_Low*B_High) >> 32) & 0xFFFF;
 
 		ALUout = AHBH + AHBL + ALBH;
-		if (isNop == 0 && (ProcessorMode != 0)) num_cycle += 1;  // In Multiple processor && pipeline
+		if ((ProcessorMode == MULTI) || (isNop == 0 && ProcessorMode == PIPELINE))
+			num_cycle += 39;  // In Multiple processor && pipeline
 		break;
 	}
 	case 5:
@@ -1356,17 +1308,18 @@ bool EX()
 	case 7:
 	{
 		ALUout = ALU_A / ALU_B;
-		if (isNop == 0 && (ProcessorMode != 0)) num_cycle += 39;  // In Multiple processor && pipeline
+		if ((ProcessorMode == MULTI) || (isNop == 0 && ProcessorMode == PIPELINE))
+			num_cycle += 39;  // In Multiple processor && pipeline
 		break;
 	}
 	case 8:
 	{
-		ALUout = (unsigned int)ALU_A >> ALU_B;//逻辑右移
+		ALUout = (unsigned int)ALU_A >> ALU_B;  // Logical shift right.
 		break;
 	}
 	case 9:
 	{
-		ALUout = (int)ALU_A >> ALU_B;//算术右移
+		ALUout = (int)ALU_A >> ALU_B;  // Arithmetic shift right.
 		break;
 	}
 	case 10:
@@ -1377,7 +1330,8 @@ bool EX()
 	case 11:
 	{
 		ALUout = ALU_A % ALU_B;
-		if (isNop == 0 && (ProcessorMode != 0)) num_cycle += 39;  // In Multiple processor && pipeline
+		if ((ProcessorMode == MULTI) || (isNop == 0 && ProcessorMode == PIPELINE))
+			num_cycle += 39;  // In Multiple processor && pipeline
 		break;
 	}
 	case 12:
@@ -1389,19 +1343,15 @@ bool EX()
 	}
 
 	//(ALU result &(~1)) / 4->PC
-	if (Branch == 6) temp_PC = (ALUout &(~1)) / 4;//JALR fresh PC number
-	//JALR
-	//if (Branch==6) printf("JALR ALUout : %llx\n", ALUout);
-	//if (Branch==6) printf("JALR temp_PC : %llx\n", temp_PC * 4);	
+	if (Branch == 6) temp_PC = (ALUout &(~1)) / 4;//JALR fresh tmep_ PC number
 
 	bool jump = false;
 	jump = ((Branch == 2 || Branch == 3 || Branch == 4 || Branch == 5) && Zero == 0);
 	jump = jump || (Branch == 1 || Branch == 6);
-	// 流水线下，非Nop指令才有跳转的权利！
-	if (ProcessorMode == 2) jump = jump && (isNop == 0);
+	if (ProcessorMode == PIPELINE) jump = jump && (isNop == 0);
 
 	//write EX_MEM_old
-	EX_MEM_old.PC = old_PC;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
+	EX_MEM_old.PC = old_PC;  // The PC of this instruction.
 	EX_MEM_old.Jump_PC = temp_PC;
 	EX_MEM_old.Rd = Rd;
 	EX_MEM_old.ALU_out = ALUout;
@@ -1419,7 +1369,8 @@ bool EX()
 	EX_MEM_old.Ctrl_WB_MemtoReg = MemtoReg;
 
 	//write EX_WB_old
-	EX_WB_old.PC = old_PC;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
+	// Used in multiple cycle processor.
+	EX_WB_old.PC = old_PC;  // The PC of this instruction.
 	EX_WB_old.Jump_PC = temp_PC;
 	EX_WB_old.ALU_out = ALUout;
 	EX_WB_old.Rd = Rd;
@@ -1427,16 +1378,16 @@ bool EX()
 	EX_WB_old.havePushedRd = havePushedRd;
 	EX_WB_old.Ctrl_WB_RegWrite = RegWrite;
 	EX_WB_old.Ctrl_WB_MemtoReg = MemtoReg;
-	
+
 	return jump;
 }
 
-//访问存储器
+// Memory.
 void MEM()
 {
 	//read EX_MEM
-	int old_PC = EX_MEM.PC;//保留跳转指令前的PC值，本指令PC，PC/4，用于之后进行变形后塞到寄存器里
-	int Rd = EX_MEM.Rd;//rd值
+	int old_PC = EX_MEM.PC;   // The PC of this instruction.
+	int Rd = EX_MEM.Rd;
 	REG ALUout = EX_MEM.ALU_out;
 	REG Reg_Rs2 = EX_MEM.Reg_Rs2;
 	int isNop = EX_MEM.isNop;
@@ -1453,7 +1404,8 @@ void MEM()
 	//read / write memory
 	unsigned long long int Mem_read;
 
-	if ((ProcessorMode == 0) || (ProcessorMode == 1) || (ProcessorMode == 2 && isNop == 0))
+	if ((ProcessorMode == SINGLE) || (ProcessorMode == MULTI) ||
+		(ProcessorMode == PIPELINE && isNop == 0))
 	{
 		//MemRead=0: don't read from memory
 		//MemRead=1: read from memory, byte
@@ -1469,8 +1421,10 @@ void MEM()
 		}
 		else if (MemRead == 2)
 		{
-			if (ALUout % 4 == 0 || ALUout % 4 == 1) Mem_read = ext_signed(memory[ALUout >> 2] & 0xFFFF, 1);
-			if (ALUout % 4 == 2 || ALUout % 4 == 3)  Mem_read = ext_signed(((memory[ALUout >> 2] & 0xFFFF0000) >> 16) & 0xFFFF, 1);
+			if (ALUout % 4 == 0 || ALUout % 4 == 1)
+				Mem_read = ext_signed(memory[ALUout >> 2] & 0xFFFF, 1);
+			if (ALUout % 4 == 2 || ALUout % 4 == 3)
+				Mem_read = ext_signed(((memory[ALUout >> 2] & 0xFFFF0000) >> 16) & 0xFFFF, 1);
 		}
 		else if (MemRead == 3)
 		{
@@ -1478,11 +1432,10 @@ void MEM()
 		}
 		else if (MemRead == 4)
 		{
-			//注意小端法
-			//读两个memory
+			// Small end.
+			// Read in 8 bytes from memory.
 			unsigned long long temp_mem = memory[(ALUout >> 2) + 1];
 			Mem_read = memory[ALUout >> 2] + (temp_mem << 32);
-			//我觉得这个是小端法了，但不确定…
 		}
 
 		//write to memory
@@ -1493,18 +1446,23 @@ void MEM()
 		//MemWrite=4: write to memory, double word[63:0]	
 		if (MemWrite == 1)
 		{
-			unsigned int temp_read = memory[(ALUout >> 2)&(~0x3)];//把ALUout搞成4的倍数，读出4个byte
+			unsigned int temp_read = memory[(ALUout >> 2)&(~0x3)];  // Read in 4 bytes.
 			unsigned int temp_write = Reg_Rs2 & 0xFF;
-			if (ALUout % 4 == 0) memory[(ALUout >> 2)] = (temp_read&(~0xFF)) + temp_write;
-			if (ALUout % 4 == 1) memory[(ALUout >> 2)] = (temp_read&(~0xFF00)) + ((temp_write << 8) & 0xFF00);
-			if (ALUout % 4 == 2) memory[(ALUout >> 2)] = (temp_read&(~0xFF0000)) + ((temp_write << 16) & 0xFF0000);
-			if (ALUout % 4 == 3) memory[(ALUout >> 2)] = (temp_read&(~0xFF000000)) + ((temp_write << 24) & 0xFF000000);
+			if (ALUout % 4 == 0) memory[(ALUout >> 2)] =
+				(temp_read&(~0xFF)) + temp_write;
+			if (ALUout % 4 == 1) memory[(ALUout >> 2)] =
+				(temp_read&(~0xFF00)) + ((temp_write << 8) & 0xFF00);
+			if (ALUout % 4 == 2) memory[(ALUout >> 2)] =
+				(temp_read&(~0xFF0000)) + ((temp_write << 16) & 0xFF0000);
+			if (ALUout % 4 == 3) memory[(ALUout >> 2)] =
+				(temp_read&(~0xFF000000)) + ((temp_write << 24) & 0xFF000000);
 		}
-		else if (MemWrite == 2)//
+		else if (MemWrite == 2)
 		{
 			unsigned int temp_read = memory[(ALUout >> 2)];
 			unsigned int temp_write = Reg_Rs2 & 0xFFFF;
-			if (ALUout % 4 == 0 || ALUout % 4 == 1) memory[(ALUout >> 2)] = (temp_read&(~0xFFFF)) + temp_write;
+			if (ALUout % 4 == 0 || ALUout % 4 == 1) memory[(ALUout >> 2)] =
+				(temp_read&(~0xFFFF)) + temp_write;
 			if (ALUout % 4 == 2 || ALUout % 4 == 3) memory[(ALUout >> 2)] =
 				(temp_read & 0xFFFF) + ((temp_write << 16) & 0xFFFF0000);
 		}
@@ -1514,14 +1472,13 @@ void MEM()
 		}
 		else if (MemWrite == 4)
 		{
-			//我感觉这是小端的放法，也比划了一下，然而还是可能出bugQAQ
 			memory[(ALUout >> 2)] = Reg_Rs2 & 0xFFFFFFFF;
 			unsigned long long temp_mask = (0xFFFFFFFF00000000);
 			memory[(ALUout >> 2) + 1] = (int)(Reg_Rs2&temp_mask);
 		}
 	}
 	//write MEM_WB_old
-	MEM_WB_old.PC = old_PC;//保留的是本指令的PC值，不是现在的PC或者temp_PC 
+	MEM_WB_old.PC = old_PC;
 	MEM_WB_old.Mem_read = Mem_read;
 	MEM_WB_old.ALU_out = ALUout;
 	MEM_WB_old.Rd = Rd;
@@ -1532,7 +1489,7 @@ void MEM()
 	MEM_WB_old.Ctrl_WB_MemtoReg = MemtoReg;
 }
 
-//写回
+// Write back.
 void WB()
 {
 	int temp_PC;
@@ -1545,12 +1502,12 @@ void WB()
 	char  RegWrite;
 	char MemtoReg;
 
-	if (state == STATE_WB_R)
+	if (state == STATE_WB_R && ProcessorMode == MULTI)
 	{
 		//read from EX_WB
-		temp_PC = EX_WB.PC;//用于送到rd里面去，是本指令的old_PC值，需要变换之后再放到寄存器里面		
+		temp_PC = EX_WB.PC;
 		ALUout = EX_WB.ALU_out;
-		Rd = EX_WB.Rd;//rd的值
+		Rd = EX_WB.Rd;
 		isNop = EX_WB.isNop;
 		havePushedRd = EX_WB.havePushedRd;
 		//RegWrite=0: don't write to register
@@ -1562,14 +1519,13 @@ void WB()
 		//MemtoReg=2: write old_PC*4+4 to R[rd] in JALR&JALto register
 		MemtoReg = EX_WB.Ctrl_WB_MemtoReg;
 	}
-	//else if (state == STATE_WB_LB)
 	else // Suitable for Pipeline
 	{
 		//read from MEM_WB
-		temp_PC = MEM_WB.PC;//用于送到rd里面去，是本指令的old_PC值，需要变换之后再放到寄存器里面
+		temp_PC = MEM_WB.PC;
 		Mem_read = MEM_WB.Mem_read;
 		ALUout = MEM_WB.ALU_out;
-		Rd = MEM_WB.Rd;//rd的值
+		Rd = MEM_WB.Rd;
 		isNop = MEM_WB.isNop;
 		havePushedRd = MEM_WB.havePushedRd;
 		//RegWrite=0: don't write to register
@@ -1582,26 +1538,21 @@ void WB()
 		MemtoReg = MEM_WB.Ctrl_WB_MemtoReg;
 	}
 
-	//在主模拟器(之前是在EX)里面把PC就写回去啦~
-
-	if ((ProcessorMode == 0) || (ProcessorMode == 1) || (ProcessorMode == 2 && isNop == 0))
+	if ((ProcessorMode == SINGLE) || (ProcessorMode == MULTI) ||
+		(ProcessorMode == PIPELINE && isNop == 0))
 	{
-		//write reg      
-		//啊Rd这里需要个什么东西把rd传过来…
-		//前面好像都错了QAQ要么就再加个变量把rd也传下来
-		//好吧我试试把rd一直传下来
+		// Write to register.      
 		if (RegWrite == 1)
 		{
 			if (MemtoReg == 0) reg[Rd] = ALUout;
 			else if (MemtoReg == 1) reg[Rd] = Mem_read;
-			else if (MemtoReg == 2) reg[Rd] = temp_PC * 4 + 4;//送到reg里面，所以最后不用/4
+			else if (MemtoReg == 2) reg[Rd] = temp_PC * 4 + 4;
 			else if (MemtoReg == 3) reg[Rd] = ext_signed(ALUout, 1);
 		}
-		if (havePushedRd)
+		if (havePushedRd && ProcessorMode == PIPELINE)
 		{
-			//流水线
 			vector<int>::iterator k = RdQueue.begin();
-			RdQueue.erase(k);//删除第一个元素
+			RdQueue.erase(k);// Delete the first element in RdQueue.
 		}
 	}
 }
