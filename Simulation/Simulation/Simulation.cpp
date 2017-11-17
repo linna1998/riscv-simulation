@@ -457,6 +457,7 @@ void MultiCycleProcessor()
 
 void PipelineProcessor()
 {
+	// Initialize.
 	num_cycle = 0;
 	num_inst = 0;
 	num_branch_nop = 0;
@@ -465,10 +466,14 @@ void PipelineProcessor()
 	bool conflict = false;
 	bool jump = false;
 	int temp_IF_PC = 0;
-	// Initialize.
+	
+	RdNode new_RdNode;
+	new_RdNode.valid = false;
+	new_RdNode.Rd = -1;
+	new_RdNode.value = -1;
 	for (int i = 0; i < 3; i++)
 	{
-		RdQueue.push_back(-1);
+		RdQueue.push_back(new_RdNode);
 	}
 	ID_EX.havePushedRd = 1;
 	EX_MEM.havePushedRd = 1;
@@ -496,11 +501,7 @@ void PipelineProcessor()
 			printf("PC_MEM         :  %08X, isNop  %d, havePushedRd  %d\n",
 				EX_MEM.PC * 4, EX_MEM.isNop, EX_MEM.havePushedRd);
 			printf("PC_WB           :  %08X, isNop  %d, havePushedRd  %d\n",
-				MEM_WB.PC * 4, MEM_WB.isNop, MEM_WB.havePushedRd);
-			for (int i = 0; i < RdQueue.size(); i++)
-			{
-				printf("RdQueueu[%d]: %d   ", i, RdQueue[i]);
-			}
+				MEM_WB.PC * 4, MEM_WB.isNop, MEM_WB.havePushedRd);			
 		}
 
 		IF();
@@ -577,11 +578,7 @@ void PipelineProcessor()
 			printf("PC_MEM         :  %08X, isNop  %d, havePushedRd  %d\n",
 				EX_MEM.PC * 4, EX_MEM.isNop, EX_MEM.havePushedRd);
 			printf("PC_WB           :  %08X, isNop  %d, havePushedRd  %d\n",
-				MEM_WB.PC * 4, MEM_WB.isNop, MEM_WB.havePushedRd);
-			for (int i = 0; i < RdQueue.size(); i++)
-			{
-				printf("RdQueueu[%d]: %d   ", i, RdQueue[i]);
-			}
+				MEM_WB.PC * 4, MEM_WB.isNop, MEM_WB.havePushedRd);			
 			// Program 1&2 debug.
 			//printf("b: M[11760] 0x%8llx.\n", memory[0x11760>>2]);
 			//printf("c: M[11764] 0x%8llx.\n", memory[0x11764 >> 2]);
@@ -1171,7 +1168,8 @@ bool ID()
 	if (isNop == 0 && ProcessorMode == PIPELINE)
 	{
 		// Judge hazard.
-		vector<int>::iterator itRs1, itRs2;
+		vector<RdNode>::iterator itRs1, itRs2;
+		// Redefined the '==' operator.
 		itRs1 = find(RdQueue.begin(), RdQueue.end(), rs1);
 		itRs2 = find(RdQueue.begin(), RdQueue.end(), rs2);
 		if (ALUSrcA == 0 && itRs1 != RdQueue.end())
@@ -1185,15 +1183,22 @@ bool ID()
 
 		// No hazard. 		
 		// Push Rd into RdQueue if it writes Rd.
+		RdNode new_RdNode;
 		if (RegWrite == 1)
 		{
-			RdQueue.push_back(rd);
+			new_RdNode.Rd = rd;
+			new_RdNode.value = -1;
+			new_RdNode.valid = false;
+			RdQueue.push_back(new_RdNode);
 			ID_EX_old.havePushedRd = 1;
 		}
 		// Else, push back -1.
 		else
 		{
-			RdQueue.push_back(-1);
+			new_RdNode.Rd = -1;
+			new_RdNode.value = -1;
+			new_RdNode.valid = false;
+			RdQueue.push_back(new_RdNode);
 			ID_EX_old.havePushedRd = 1;
 		}
 	}
@@ -1551,7 +1556,7 @@ void WB()
 		}
 		if (havePushedRd && ProcessorMode == PIPELINE)
 		{
-			vector<int>::iterator k = RdQueue.begin();
+			vector<RdNode>::iterator k = RdQueue.begin();
 			RdQueue.erase(k);// Delete the first element in RdQueue.
 		}
 	}

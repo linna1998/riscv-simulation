@@ -153,8 +153,20 @@ STATE_WB_LB,	// STATE_MEM_LB
 STATE_IF,	// STATE_WB_R
 STATE_IF };	// STATE_WB_LB
 
+struct RdNode
+{
+	// Whether value is the vallid number of reg[rd] or not.
+	bool valid; 
+	int Rd;
+	int value;
+	bool operator == (const int & i);
+};
+bool RdNode::operator == (const int & i)
+{
+	return this->Rd == i;
+}
 // In pipeline. The hazard queue.
-vector<int> RdQueue;
+vector<RdNode> RdQueue;
 
 // Analyze the instruction.
 unsigned int OP = 0;
