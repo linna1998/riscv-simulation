@@ -104,18 +104,11 @@ void print_result()
 		printf("[%08x] %08x\n", (int)(radr + i), memory[(radr + i) >> 2]);
 	}
 	printf("\n");
-	printf("a: %08x\n", memory[a_adr >> 2]);
-	printf("b: %08x\n", memory[b_adr >> 2]);
-	printf("c: %08x\n", memory[c_adr >> 2]);
-	printf("temp: %08x\n", memory[temp_adr >> 2]);
-	printf("sum: %08x\n", memory[sum_adr >> 2]);
-
-	// Debug
-	int RdSize = RdQueue.size();
-	for (int i = 0; i < RdSize; i++)
-	{
-		printf("reg[%08x] = %08x, valid= %08x.\n", RdQueue[i].Rd, RdQueue[i].value, RdQueue[i].valid);
-	}
+	printf("a:        %d\n", memory[a_adr >> 2]);
+	printf("b:        %d\n", memory[b_adr >> 2]);
+	printf("c:        %d\n", memory[c_adr >> 2]);
+	printf("temp:  %d\n", memory[temp_adr >> 2]);
+	printf("sum:    %d\n", memory[sum_adr >> 2]);
 }
 
 // Print the .text setion memory.
@@ -317,7 +310,7 @@ void SingleCycleProcessor()
 		if (TF)
 		{
 			print_regs();
-			//print_stack();
+			print_stack();
 			print_result();
 			getchar();
 		}
@@ -488,11 +481,6 @@ void PipelineProcessor()
 	EX_WB.havePushedRd = 1;
 	MEM_WB.havePushedRd = 1;
 
-	//ID_EX.isNop = 1;
-	//EX_MEM.isNop = 1;
-	//EX_WB.isNop = 1;
-	//MEM_WB.isNop = 1;
-
 	while ((MEM_WB.PC * 4) != endPC)
 	{
 		num_cycle++;
@@ -500,30 +488,36 @@ void PipelineProcessor()
 		temp_IF_PC = global_PC;
 		if (TF)
 		{
-			printf("[TF] Instruction:  %08x\n", memory[global_PC]);
-			printf("Before doing things.\n");
-			printf("PC_IF             :  %08X\n", global_PC * 4);
-			printf("PC_ID             :  %08X, isNop  %d\n", IF_ID.PC * 4, IF_ID.isNop);
-			printf("PC_EX             :  %08X, isNop  %d, havePushedRd  %d\n",
-				ID_EX.PC * 4, ID_EX.isNop, ID_EX.havePushedRd);
-			printf("PC_MEM         :  %08X, isNop  %d, havePushedRd  %d\n",
-				EX_MEM.PC * 4, EX_MEM.isNop, EX_MEM.havePushedRd);
-			printf("PC_WB           :  %08X, isNop  %d, havePushedRd  %d\n",
-				MEM_WB.PC * 4, MEM_WB.isNop, MEM_WB.havePushedRd);
+			printf("[TF] Instruction:  %08x.\n", memory[global_PC]);
+			printf("PC_IF             :  %08X.\n", global_PC * 4);
+			printf("PC_ID             :  %08X.\n", IF_ID.PC * 4);
+			printf("PC_EX             :  %08X.\n", ID_EX.PC * 4);
+			printf("PC_MEM         :  %08X.\n", EX_MEM.PC * 4);
+			printf("PC_WB           :  %08X.\n", MEM_WB.PC * 4);
+
+			//// Debug
+			//printf("[TF] Instruction:  %08x\n", memory[global_PC]);		
+			//printf("PC_IF             :  %08X.\n", global_PC * 4);
+			//printf("PC_ID             :  %08X, isNop  %d\n", IF_ID.PC * 4, IF_ID.isNop);
+			//printf("PC_EX             :  %08X, isNop  %d, havePushedRd  %d\n",
+			//	ID_EX.PC * 4, ID_EX.isNop, ID_EX.havePushedRd);
+			//printf("PC_MEM         :  %08X, isNop  %d, havePushedRd  %d\n",
+			//	EX_MEM.PC * 4, EX_MEM.isNop, EX_MEM.havePushedRd);
+			//printf("PC_WB           :  %08X, isNop  %d, havePushedRd  %d\n",
+			//	MEM_WB.PC * 4, MEM_WB.isNop, MEM_WB.havePushedRd);
 		}
 
 		IF();
 		conflict = ID();
-		//如果返回true说明跳转
-		//如果返回false说明不跳转
-		jump = EX();  // EX中跳转可能再改PC，这个改的优先级高
+		// If EX() returns true, then have t jump.
+		jump = EX();
 		MEM();
 		WB();
 
-		// PC 跳转逻辑		
+		// PC jump		
 		if (jump)
 		{
-			global_PC = EX_MEM_old.Jump_PC;//跳转，设置新地址
+			global_PC = EX_MEM_old.Jump_PC;  // Set new address.
 			IF_ID_old.isNop = 1;
 			ID_EX_old.isNop = 1;
 			num_branch_nop += 2;
@@ -535,10 +529,7 @@ void PipelineProcessor()
 		}
 		else if (conflict)
 		{
-			// ???
-			global_PC = temp_IF_PC;  // 取指取原址
-
-			//printf("global_PC become %08X\n.", global_PC * 4);
+			global_PC = temp_IF_PC;  // Get the old PC address.
 			IF_ID_old.isNop = 1;
 			ID_EX_old.isNop = 1;
 			num_data_nop++;
@@ -548,65 +539,24 @@ void PipelineProcessor()
 				ID_EX_old.havePushedRd = 0;
 			}
 		}
-		////complete Branch instruction PC change
-		//if ((EX_MEM_old.Ctrl_M_Branch == 2 || EX_MEM_old.Ctrl_M_Branch == 3 || EX_MEM_old.Ctrl_M_Branch == 4 || EX_MEM_old.Ctrl_M_Branch == 5)
-		//	&& EX_MEM_old.Ctrl_M_Zero == 0)
-		//{
-		//	global_PC = EX_MEM_old.Jump_PC;//跳转，设置新地址, SB type
-		//	IF_ID_old.isNop = 1;
-		//	ID_EX_old.Ctrl_M_MemWrite = 0;
-		//	ID_EX_old.Ctrl_WB_RegWrite = 0;
-		//}
-		//else if (EX_MEM_old.Ctrl_M_Branch == 1 || EX_MEM_old.Ctrl_M_Branch == 6)
-		//{
-		//	global_PC = EX_MEM_old.Jump_PC;// JAL&JALR
-		//	IF_ID_old.isNop = 1;
-		//	//ID_EX_old.Rd = -1;
-		//	ID_EX_old.Ctrl_M_MemWrite = 0;
-		//	ID_EX_old.Ctrl_WB_RegWrite = 0;
-		//}
 
-
-		// 更新中间寄存器		
+		// refresh the registers.
 		if (!(conflict && !jump)) IF_ID = IF_ID_old;
-		//IF_ID = IF_ID_old;
 		ID_EX = ID_EX_old;
 		EX_MEM = EX_MEM_old;
 		MEM_WB = MEM_WB_old;
 
-		reg[0] = 0;  // 一直为零
-
-		// Debug
-		if (ID_EX.PC * 4 == 0x101DC && ID_EX.isNop == 0)
-		{
-			printf("ID_EX.Reg_Rs2 = %d\n", ID_EX.Reg_Rs2);
-		}
+		reg[0] = 0;
 
 		if (TF)
 		{
-			printf("After doing things.\n");
-			printf("PC_IF             :  %08X\n", global_PC * 4);
-			printf("PC_ID             :  %08X, isNop  %d\n", IF_ID.PC * 4, IF_ID.isNop);
-			printf("PC_EX             :  %08X, isNop  %d, havePushedRd  %d\n",
-				ID_EX.PC * 4, ID_EX.isNop, ID_EX.havePushedRd);
-			printf("PC_MEM         :  %08X, isNop  %d, havePushedRd  %d\n",
-				EX_MEM.PC * 4, EX_MEM.isNop, EX_MEM.havePushedRd);
-			printf("PC_WB           :  %08X, isNop  %d, havePushedRd  %d\n",
-				MEM_WB.PC * 4, MEM_WB.isNop, MEM_WB.havePushedRd);
-			// Program 1&2 debug.
-			//printf("b: M[11760] 0x%8llx.\n", memory[0x11760>>2]);
-			//printf("c: M[11764] 0x%8llx.\n", memory[0x11764 >> 2]);
-
-			// Program 3&4 debug.
-			//printf("-20(s0) 0x%8llx.\n", memory[( 0x8000000-0x20)>> 2]);
-
 			print_regs();
-			//print_stack();
+			print_stack();
 			print_result();
 			getchar();
 		}
 	}
-	num_inst = num_inst - 3;//// 除去开始前三条划水指令
+	num_inst = num_inst - 3;  // The first three nop instructions.
 	printf("===============================================================================\n");
 	printf("[!] Return from main function.\n");
 	print_regs();
@@ -1193,8 +1143,6 @@ bool ID()
 			if (RdQueue[index_Rs1].valid == true)
 			{
 				ID_EX_old.Reg_Rs1 = RdQueue[index_Rs1].value;
-				// Debug
-				printf("ID: reg[%d] get %08x from RdQueue.\n", rs1, ID_EX_old.Reg_Rs1);
 			}
 			else
 			{
@@ -1207,8 +1155,6 @@ bool ID()
 			if (RdQueue[index_Rs2].valid == true)
 			{
 				ID_EX_old.Reg_Rs2 = RdQueue[index_Rs2].value;
-				// Debug
-				printf("ID: reg[%d] get %08x from RdQueue.\n", rs2, ID_EX_old.Reg_Rs2);
 			}
 			else
 			{
@@ -1410,8 +1356,6 @@ bool EX()
 				if (MemtoReg == 0 || MemtoReg == 2 || MemtoReg == 3)
 				{
 					RdQueue[i].valid = true;
-					// Debug
-					printf("EX set reg[%d] to be %08x.\n", RdQueue[i].Rd, RdQueue[i].value);
 					break;  // Write into the oldest value;
 				}
 			}
@@ -1555,8 +1499,6 @@ void MEM()
 				{
 					RdQueue[i].value = Mem_read;
 					RdQueue[i].valid = true;
-					// Debug
-					printf("EX set reg[%d] to be %08x.\n", RdQueue[i].Rd, RdQueue[i].value);
 					break;  // Write into the oldest value.
 				}
 			}
