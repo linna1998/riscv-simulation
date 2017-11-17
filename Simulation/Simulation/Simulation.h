@@ -181,7 +181,7 @@ void IF();
 
 bool ID();
 
-void EX();
+bool EX();
 
 void MEM();
 

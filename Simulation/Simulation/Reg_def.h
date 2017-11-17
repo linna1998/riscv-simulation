@@ -2,6 +2,7 @@
 #pragma once
 typedef unsigned long long REG;
 
+
 struct IFID 
 {
 	//inst means the instruction which is going to execute
@@ -13,7 +14,7 @@ struct IFID
 
 }IF_ID, IF_ID_old;
 
-
+// 所有中间寄存器里面的PC都是本条指令的PC值
 struct IDEX 
 {
 	int Rd;
@@ -58,7 +59,8 @@ struct EXMEM
 
 struct EXWB
 {
-	int PC;//用于WB里面写到寄存器，例如JAL指令
+	int PC;
+	int Jump_PC;
 	REG ALU_out;
 	int Rd;
 	int isNop;
@@ -71,7 +73,7 @@ struct EXWB
 
 struct MEMWB 
 {
-	int PC;//用于WB里面写到寄存器，例如JAL指令
+	int PC;
 	unsigned long long int Mem_read;//the data from the memory
 	REG ALU_out;
 	int Rd;

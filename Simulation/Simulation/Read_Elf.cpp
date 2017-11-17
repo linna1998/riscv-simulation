@@ -356,6 +356,10 @@ void read_symtable()
 		{
 			temp_adr = elf64_sym.st_value;
 		}
+		if (!strcmp((const char*)(sysname + elf64_sym.st_name), "sum"))
+		{
+			sum_adr = elf64_sym.st_value;
+		}
 		if (!strcmp((const char*)(sysname + elf64_sym.st_name), "__global_pointer$"))
 		{
 			gp = elf64_sym.st_value;
