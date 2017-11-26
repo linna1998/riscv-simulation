@@ -1,14 +1,18 @@
 #pragma once
-#include<iostream>
-#include<stdio.h>
-#include<math.h>
+#include <algorithm>
+#include <iostream>
+#include <math.h>
+#include <queue>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <vector>
 
-#include<time.h>
-#include<stdlib.h>
-#include<vector>
-#include<algorithm>
-#include<queue>
-#include"Reg_def.h"
+#include "cache.h"
+#include "memory.h"
+#include "Reg_def.h"
+#include "stdio.h"
 
 using namespace std;
 
@@ -138,6 +142,10 @@ int num_inst = 0;
 int num_branch_nop = 0;
 int num_data_nop = 0;
 
+// Simulate Memory.
+Memory m;
+Cache l1, l2, l3;
+
 // In multiple cycle processor. The next state.
 int state_change[12] =
 { STATE_ID,	// STATE_IF
@@ -156,7 +164,7 @@ STATE_IF };	// STATE_WB_LB
 struct RdNode
 {
 	// Whether value is the vallid number of reg[rd] or not.
-	bool valid; 
+	bool valid;
 	int Rd;
 	int value;
 	bool operator == (const int & i);

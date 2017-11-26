@@ -1,5 +1,4 @@
 ﻿#include "Simulation.h"
-#include <string.h>
 using namespace std;
 
 extern void read_elf();
@@ -29,7 +28,7 @@ static bool TF = false;
 // ProcessorMode = 0: Single Cycle Processor.
 // ProcessorMode = 1: Multiple Cycle Processor.
 // ProcessorMode = 2: Pipeline Processor.
-static int ProcessorMode = SINGLE;
+static int ProcessorMode = PIPELINE;
 
 // System call return.
 #define RET_INST 0x00008067
@@ -165,6 +164,109 @@ void load_sdata()
 	}
 }
 
+void Init_cache()
+{
+	CacheConfig_ cc1;
+	cc1.s = 6;
+	cc1.e = 3;
+	cc1.b = 4;
+	cc1.write_through = 0;
+	cc1.write_allocate = 1;
+
+	CacheConfig_ cc2;
+	cc2.s = 9;
+	cc2.e = 3;
+	cc2.b = 4;
+	cc2.write_through = 0;
+	cc2.write_allocate = 1;
+
+	CacheConfig_ cc3;
+	cc3.s = 14;
+	cc3.e = 3;
+	cc3.b = 4;
+	cc3.write_through = 0;
+	cc3.write_allocate = 1;
+
+	l1.SetLower(&l2);
+	l2.SetLower(&l3);
+	l3.SetLower(&m);
+	l1.SetConfig(cc1);
+	l2.SetConfig(cc2);
+	l3.SetConfig(cc3);
+	l1.BuildCache();
+	l2.BuildCache();
+	l3.BuildCache();
+
+	StorageStats s;
+	s.access_counter = 0;
+	s.access_time = 0;
+	s.fetch_num = 0;
+	s.miss_num = 0;
+	s.prefetch_num = 0;
+	s.replace_num = 0;
+
+	m.SetStats(s);
+	l1.SetStats(s);
+	l2.SetStats(s);
+	l3.SetStats(s);
+
+	StorageLatency ml;
+	ml.bus_latency = 0;
+	ml.hit_latency = 100;  // 100 cycles
+	m.SetLatency(ml);
+
+	StorageLatency ll1, ll2, ll3;
+	ll1.bus_latency = 0;
+	ll1.hit_latency = 1;  // 1 cycle.
+	l1.SetLatency(ll1);
+	ll2.bus_latency = 0;
+	ll2.hit_latency = 8;
+	l2.SetLatency(ll2);
+	ll3.bus_latency = 0;
+	ll3.hit_latency = 20;
+	l3.SetLatency(ll3);
+}
+
+void Ana_cache()
+{
+	StorageStats_ ss;
+	l1.GetStats(ss);
+	printf(" Analyze on cache l1:\n");
+	printf(" Total hit = %d\n", ss.access_counter - ss.miss_num);
+	printf(" Total num = %d\n", ss.access_counter);
+	printf(" Miss Rate= %f\n", (double)(ss.miss_num) / (double)(ss.access_counter));
+	printf(" Total time= %d cycles\n", ss.access_time);
+	printf(" Total replacement = %d\n", ss.replace_num);
+	printf("\n");
+
+	l2.GetStats(ss);
+	printf(" Analyze on cache l2:\n");
+	printf(" Total hit = %d\n", ss.access_counter - ss.miss_num);
+	printf(" Total num = %d\n", ss.access_counter);
+	printf(" Miss Rate= %f\n", (double)(ss.miss_num) / (double)(ss.access_counter));
+	printf(" Total time= %d cycles\n", ss.access_time);
+	printf(" Total replacement = %d\n", ss.replace_num);
+	printf("\n");
+
+	l3.GetStats(ss);
+	printf(" Analyze on cache llc:\n");
+	printf(" Total hit = %d\n", ss.access_counter - ss.miss_num);
+	printf(" Total num = %d\n", ss.access_counter);
+	printf(" Miss Rate= %f\n", (double)(ss.miss_num) / (double)(ss.access_counter));
+	printf(" Total time= %d cycles\n", ss.access_time);
+	printf(" Total replacement = %d\n", ss.replace_num);
+	printf("\n");
+
+	m.GetStats(ss);
+	printf(" Analyze on memory:\n");
+	printf(" Total hit = %d\n", ss.access_counter - ss.miss_num);
+	printf(" Total num = %d\n", ss.access_counter);
+	printf(" Miss Rate= %f\n", (double)(ss.miss_num) / (double)(ss.access_counter));
+	printf(" Total time= %d cycles\n", ss.access_time);
+	printf(" Total replacement = %d\n", ss.replace_num);
+	printf("\n");
+}
+
 int main(int argc, char* argv[])
 {
 	char filename[15] = "./test";
@@ -183,7 +285,7 @@ int main(int argc, char* argv[])
 				cout << "           --SF means single cycle processor." << endl;
 				cout << "           --MF means multiple cycle processor." << endl;
 				cout << "           --PF means pipelin processor." << endl;
-				cout << "           Single cycle processor by default." << endl;
+				cout << "           Pipeline processor by default." << endl;
 				return 0;
 			}
 			else if (strstr(argv[i], "--name=") != NULL)
@@ -221,6 +323,8 @@ int main(int argc, char* argv[])
 			}
 		}
 	}
+	// Initialize the cache.
+	Init_cache();
 
 	// Read the .elf file.
 	cout << "OPEN FILE: " << filename << endl << endl;
@@ -266,6 +370,8 @@ int main(int argc, char* argv[])
 		printf(" Data_nop_cycle     : %d\n", num_data_nop);
 	}
 	printf(" CPI                : %f\n", num_cycle / (float)(num_inst));
+	printf("\n");
+	Ana_cache();	
 	printf("Please press Enter to continue...\n");
 
 	getchar();
@@ -1415,6 +1521,11 @@ void MEM()
 	//read / write memory
 	unsigned long long int Mem_read;
 
+	int read;
+	int addr = 0;
+	char content[32];
+	int hit = 0, time = 0;
+
 	if ((ProcessorMode == SINGLE) || (ProcessorMode == MULTI) ||
 		(ProcessorMode == PIPELINE && isNop == 0))
 	{
@@ -1447,6 +1558,22 @@ void MEM()
 			// Read in 8 bytes from memory.
 			unsigned long long temp_mem = memory[(ALUout >> 2) + 1];
 			Mem_read = memory[ALUout >> 2] + (temp_mem << 32);
+		}
+
+		// Simulate Cache.
+		if (MemRead == 1 || MemRead == 2 || MemRead == 3)
+		{
+			read = 1;
+			addr = ALUout >> 2;
+			l1.HandleRequest(addr, 4, read, content, hit, time);
+		}
+		else if (MemRead == 4)
+		{
+			read = 1;
+			addr = ALUout >> 2;
+			l1.HandleRequest(addr, 4, read, content, hit, time);
+			addr = ALUout >> 2 + 1;
+			l1.HandleRequest(addr, 4, read, content, hit, time);
 		}
 
 		//write to memory
@@ -1486,6 +1613,29 @@ void MEM()
 			memory[(ALUout >> 2)] = Reg_Rs2 & 0xFFFFFFFF;
 			unsigned long long temp_mask = (0xFFFFFFFF00000000);
 			memory[(ALUout >> 2) + 1] = (int)(Reg_Rs2&temp_mask);
+		}
+
+		// Simulate Cache.
+		if (MemWrite == 1 || MemWrite == 2 || MemWrite == 3)
+		{
+			read = 0;
+			addr = ALUout >> 2;
+			l1.HandleRequest(addr, 4, read, content, hit, time);
+		}
+		else if (MemWrite == 4)
+		{
+			read = 0;
+			addr = ALUout >> 2;
+			l1.HandleRequest(addr, 4, read, content, hit, time);
+			addr = ALUout >> 2 + 1;
+			l1.HandleRequest(addr, 4, read, content, hit, time);
+		}
+
+		// Pipeline, update clock cycle.
+		if (ProcessorMode == PIPELINE && isNop == 0)
+		{
+			if (MemRead != 0 || MemWrite != 0)
+				num_cycle += time - 1;
 		}
 	}
 	// Load's data forwarding.

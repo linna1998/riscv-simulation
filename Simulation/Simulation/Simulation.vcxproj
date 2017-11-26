@@ -146,11 +146,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="cache.h" />
+    <ClInclude Include="def.h" />
+    <ClInclude Include="Makefile" />
+    <ClInclude Include="memory.h" />
     <ClInclude Include="Read_Elf.h" />
     <ClInclude Include="Reg_def.h" />
     <ClInclude Include="Simulation.h" />
+    <ClInclude Include="storage.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="cache.cc" />
+    <ClCompile Include="memory.cc" />
     <ClCompile Include="Read_Elf.cpp" />
     <ClCompile Include="Simulation.cpp" />
   </ItemGroup>

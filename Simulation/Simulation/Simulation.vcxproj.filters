@@ -24,12 +24,33 @@
     <ClInclude Include="Simulation.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="cache.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="def.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="memory.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="storage.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Makefile">
+      <Filter>源文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Simulation.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="Read_Elf.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="cache.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="memory.cc">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
