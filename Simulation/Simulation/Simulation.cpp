@@ -584,7 +584,7 @@ bool ID()
 {
 	//Read IF_ID
 	unsigned int inst = IF_ID.inst;
-	unsigned int my_PC = IF_ID.PC;  // The PC of this instruction.
+	unsigned int inst_PC = IF_ID.PC;  // The PC of this instruction.
 	int isNop = IF_ID.isNop;
 
 	//EXTop=0: Zero extend
@@ -615,7 +615,7 @@ bool ID()
 	char ALUSrcB;
 
 	//Branch=0: new_PC=PC+1
-	//Branch=1: (my_PC*4+IMM*2)/4->PC, choose to branch in JAL
+	//Branch=1: (inst_PC*4+IMM*2)/4->PC, choose to branch in JAL
 	//Branch=2: branch if R[rs1]==R[rs2]
 	//Branch=3: branch if R[rs1]!=R[rs2]
 	//Branch=4: branch if R[rs1]<R[rs2]
@@ -640,7 +640,7 @@ bool ID()
 	char RegWrite;
 	//MemtoReg=0: send ALU's result to register
 	//MemtoReg=1: send Memory's result to register
-	//MemtoReg=2: write my_PC*4+4 to R[rd] in JALR&JALto register
+	//MemtoReg=2: write inst_PC*4+4 to R[rd] in JALR&JALto register
 	//MemtoReg=3: send ALU's result to register, and signed extend it to 64 bits
 	char MemtoReg;
 
@@ -951,11 +951,11 @@ bool ID()
 	//ID:
 	//EX: ALU calculate { (R[rs1]+imm) ,1b'0}
 	//MEM: 	
-	//WB: my_PC*4+4 -> R[rd], (ALU result*2)/4->PC
+	//WB: inst_PC*4+4 -> R[rd], (ALU result*2)/4->PC
 	else if (OP == OP_JALR)
 	{
 		next_state = STATE_EX_R;
-		//R[rd] ←my_PC*4+4
+		//R[rd] ←inst_PC*4+4
 		//PC ← { (R[rs1] + imm), 1b'0} /4
 		if (fuc3 == F3_JALR)
 		{
@@ -1090,8 +1090,8 @@ bool ID()
 	//UI type
 	else if (OP == OP_JAL)
 	{
-		//R[rd] ← my_PC*4 + 4
-		//PC ← (my_PC *4 + {imm, 1b'0} )/4 //finished
+		//R[rd] ← inst_PC*4 + 4
+		//PC ← (inst_PC *4 + {imm, 1b'0} )/4 //finished
 		next_state = STATE_EX_R;
 		EXTop = 1;//sign extend
 		EXTsrc = ext_signed(imm_UJ, 1);
@@ -1099,7 +1099,7 @@ bool ID()
 		ALUop = 0;
 		ALUSrcA = 0;
 		ALUSrcB = 1;
-		Branch = 1;//(my_PC*4+EXTsrc)/4->PC
+		Branch = 1;//(inst_PC*4+EXTsrc)/4->PC
 		MemRead = 0;
 		MemWrite = 0;
 		RegWrite = 1;
@@ -1111,7 +1111,7 @@ bool ID()
 
 	//write ID_EX_old
 	ID_EX_old.Rd = rd;
-	ID_EX_old.PC = my_PC;  // The PC of this instruction.
+	ID_EX_old.PC = inst_PC;  // The PC of this instruction.
 	ID_EX_old.Imm = ext_signed(EXTsrc, EXTop);
 	ID_EX_old.Reg_Rs1 = reg[rs1];  // Get the number in register in decode step.
 	ID_EX_old.Reg_Rs2 = reg[rs2];
@@ -1200,7 +1200,7 @@ bool EX()
 	//read ID_EX	
 	int Rd = ID_EX.Rd;
 	int temp_PC = ID_EX.PC;   // The PC of this instruction.
-	int my_PC = ID_EX.PC;  // The PC of this instruction.
+	int inst_PC = ID_EX.PC;  // The PC of this instruction.
 	int Imm = ID_EX.Imm;
 	REG Reg_Rs1 = ID_EX.Reg_Rs1;
 	REG Reg_Rs2 = ID_EX.Reg_Rs2;
@@ -1228,7 +1228,7 @@ bool EX()
 	REG ALU_B = 0;
 
 	if (ALUSrcA == 0) ALU_A = Reg_Rs1;
-	else ALU_A = my_PC * 4;  //used in AUIPC, ALU_A+ALU_B
+	else ALU_A = inst_PC * 4;  //used in AUIPC, ALU_A+ALU_B
 	if (ALUSrcB == 0) ALU_B = Reg_Rs2;
 	else ALU_B = Imm;
 
@@ -1351,7 +1351,7 @@ bool EX()
 			if (RdQueue[i].Rd == Rd && RdQueue[i].valid == false)
 			{
 				if (MemtoReg == 0) RdQueue[i].value = ALUout;
-				else if (MemtoReg == 2)  RdQueue[i].value = my_PC * 4 + 4;
+				else if (MemtoReg == 2)  RdQueue[i].value = inst_PC * 4 + 4;
 				else if (MemtoReg == 3)  RdQueue[i].value = ext_signed(ALUout, 1);
 				if (MemtoReg == 0 || MemtoReg == 2 || MemtoReg == 3)
 				{
@@ -1362,7 +1362,7 @@ bool EX()
 		}
 	}
 	//write EX_MEM_old
-	EX_MEM_old.PC = my_PC;  // The PC of this instruction.
+	EX_MEM_old.PC = inst_PC;  // The PC of this instruction.
 	EX_MEM_old.Jump_PC = temp_PC;
 	EX_MEM_old.Rd = Rd;
 	EX_MEM_old.ALU_out = ALUout;
@@ -1381,7 +1381,7 @@ bool EX()
 
 	//write EX_WB_old
 	// Used in multiple cycle processor.
-	EX_WB_old.PC = my_PC;  // The PC of this instruction.
+	EX_WB_old.PC = inst_PC;  // The PC of this instruction.
 	EX_WB_old.Jump_PC = temp_PC;
 	EX_WB_old.ALU_out = ALUout;
 	EX_WB_old.Rd = Rd;
@@ -1397,7 +1397,7 @@ bool EX()
 void MEM()
 {
 	//read EX_MEM
-	int my_PC = EX_MEM.PC;   // The PC of this instruction.
+	int inst_PC = EX_MEM.PC;   // The PC of this instruction.
 	int Rd = EX_MEM.Rd;
 	REG ALUout = EX_MEM.ALU_out;
 	REG Reg_Rs2 = EX_MEM.Reg_Rs2;
@@ -1506,7 +1506,7 @@ void MEM()
 	}
 
 	//write MEM_WB_old
-	MEM_WB_old.PC = my_PC;
+	MEM_WB_old.PC = inst_PC;
 	MEM_WB_old.Mem_read = Mem_read;
 	MEM_WB_old.ALU_out = ALUout;
 	MEM_WB_old.Rd = Rd;
@@ -1520,7 +1520,7 @@ void MEM()
 // Write back.
 void WB()
 {
-	int my_PC;
+	int inst_PC;
 	unsigned long long int Mem_read;
 	REG ALUout;
 	int Rd;
@@ -1533,7 +1533,7 @@ void WB()
 	if (state == STATE_WB_R && ProcessorMode == MULTI)
 	{
 		//read from EX_WB
-		my_PC = EX_WB.PC;
+		inst_PC = EX_WB.PC;
 		ALUout = EX_WB.ALU_out;
 		Rd = EX_WB.Rd;
 		isNop = EX_WB.isNop;
@@ -1544,13 +1544,13 @@ void WB()
 
 		//MemtoReg=0: send ALU's result to register
 		//MemtoReg=1: send Memory's result to register
-		//MemtoReg=2: write my_PC*4+4 to R[rd] in JALR&JALto register
+		//MemtoReg=2: write inst_PC*4+4 to R[rd] in JALR&JALto register
 		MemtoReg = EX_WB.Ctrl_WB_MemtoReg;
 	}
 	else // Suitable for Pipeline
 	{
 		//read from MEM_WB
-		my_PC = MEM_WB.PC;
+		inst_PC = MEM_WB.PC;
 		Mem_read = MEM_WB.Mem_read;
 		ALUout = MEM_WB.ALU_out;
 		Rd = MEM_WB.Rd;
@@ -1562,7 +1562,7 @@ void WB()
 
 		//MemtoReg=0: send ALU's result to register
 		//MemtoReg=1: send Memory's result to register
-		//MemtoReg=2: write my_PC*4+4 to R[rd] in JALR&JALto register
+		//MemtoReg=2: write inst_PC*4+4 to R[rd] in JALR&JALto register
 		MemtoReg = MEM_WB.Ctrl_WB_MemtoReg;
 	}
 
@@ -1574,7 +1574,7 @@ void WB()
 		{
 			if (MemtoReg == 0) reg[Rd] = ALUout;
 			else if (MemtoReg == 1) reg[Rd] = Mem_read;
-			else if (MemtoReg == 2) reg[Rd] = my_PC * 4 + 4;
+			else if (MemtoReg == 2) reg[Rd] = inst_PC * 4 + 4;
 			else if (MemtoReg == 3) reg[Rd] = ext_signed(ALUout, 1);
 		}
 		if (havePushedRd && ProcessorMode == PIPELINE)
